@@ -4,7 +4,17 @@ module AST where
 data SchemeVal = Atom String
                | List [SchemeVal]
                | DottedList [SchemeVal] SchemeVal
-               | Number Double
+               | Integer Integer
+               | Float Double
+               | Rational Integer Integer
+               | Complex Double Double
                | String String
                | Bool Bool
-               deriving (Show, Eq)
+               | Char Char
+               deriving (Eq)
+
+showSchemeVal :: SchemeVal -> String
+showSchemeVal = undefined
+
+instance  Show SchemeVal where
+  show = showSchemeVal
