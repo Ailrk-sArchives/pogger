@@ -4,11 +4,10 @@ import AST
 import Parser
 
 data ListpError
-    = NumArgs Integer [SchemeVal]
-    | TypeMisMatch String SchemeVal
+    = NumArgs Integer [PoggerVal]
+    | TypeMisMatch String PoggerVal
     | Parser ParseError
-    | BadSpecialForm String SchemeVal
+    | BadSpecialForm String PoggerVal
     | NotFunction String String
     | UnboundVar String String
     | Default String
-

@@ -1,9 +1,9 @@
 module AST where
 
 
-data SchemeVal = Atom String
-               | List [SchemeVal]
-               | DottedList [SchemeVal] SchemeVal
+data PoggerVal = Atom String
+               | List [PoggerVal]
+               | DottedList [PoggerVal] PoggerVal
                | Integer Integer
                | Float Double
                | Rational Integer Integer
@@ -13,8 +13,8 @@ data SchemeVal = Atom String
                | Char Char
                deriving (Eq)
 
-showSchemeVal :: SchemeVal -> String
-showSchemeVal = undefined
+showPoggerVal :: PoggerVal -> String
+showPoggerVal = undefined
 
-instance  Show SchemeVal where
-  show = showSchemeVal
+instance  Show PoggerVal where
+  show = showPoggerVal

@@ -17,12 +17,12 @@ data ParseError
   deriving Show
 
 -- | Non alpha numeric characters
-schemeSymbol :: Parser Char
-schemeSymbol = oneOf "!#$%&|*+-/:<=>?@^_~"
+poggerSymbol :: Parser Char
+poggerSymbol = oneOf "!#$%&|*+-/:<=>?@^_~"
 
 -- | R5RS string internal escape: \" \n \r \t \\
-schemeString :: Parser SchemeVal
-schemeString = do
+poggerString :: Parser PoggerVal
+poggerString = do
   char '"'
   x <- many escapedChar
   char '"'
@@ -42,10 +42,10 @@ schemeString = do
     char c
 
 -- | Atom are alphanumeric followed alphanumerics, symbols and digits.
-schemeAtom :: Parser SchemeVal
-schemeAtom = do
-  h  <- letter <|> schemeSymbol
-  hs <- many $ letter <|> digit <|> schemeSymbol
+poggerAtom :: Parser PoggerVal
+poggerAtom = do
+  h  <- letter <|> poggerSymbol
+  hs <- many $ letter <|> digit <|> poggerSymbol
   let atom = h : hs
   return $ case atom of
     "#t" -> Bool True
@@ -56,18 +56,18 @@ schemeAtom = do
 Support both the integer and floating point form of
 hexdecimal (#x), binary (#d), oct (#o).
 -}
-schemeFloat :: Parser SchemeVal
-schemeFloat =
+poggerFloat :: Parser PoggerVal
+poggerFloat =
   Float <$> (try decFloat <|> try hexFloat <|> try octFloat <|> try binFloat)
 
-schemeInteger :: Parser SchemeVal
-schemeInteger =
+poggerInteger :: Parser PoggerVal
+poggerInteger =
   Integer
     <$> (try decInteger <|> try hexInteger <|> try octInteger <|> try binInteger
         )
 
-schemeComplex :: Parser SchemeVal
-schemeComplex = sign >>= \s -> do
+poggerComplex :: Parser PoggerVal
+poggerComplex = sign >>= \s -> do
   real <- (try decFloat <|> (fromIntegral <$> decInteger))
     >>= \r -> return $ if s == "-" then negate r else r
   char '+'
@@ -75,8 +75,8 @@ schemeComplex = sign >>= \s -> do
   char 'i'
   return $ Complex real img
 
-schemeRational :: Parser SchemeVal
-schemeRational = sign >>= \s -> do
+poggerRational :: Parser PoggerVal
+poggerRational = sign >>= \s -> do
   denominator <- decInteger >>= \d -> return $ if s == "-" then negate d else d
   char '/'
   dvisor <- decInteger
@@ -134,13 +134,13 @@ sign = (string "+" >> return "") <|> string "-" <|> return ""
 dot :: Parser String
 dot = string "."
 
-{- | Parse scheme characeter
+{- | Parse pogger characeter
 \#<char> or \#<char name>
 Characeters in \# are self-evaluating, no need to quote them.
 A character must end with a space.
 -}
-schemeChar :: Parser SchemeVal
-schemeChar = do
+poggerChar :: Parser PoggerVal
+poggerChar = do
   char '\\' >> char '#'
   n <- do
     let ss = string <$> M.keys charNames
@@ -158,47 +158,47 @@ schemeChar = do
     , ("backspace", ' ')
     ]
 
--- | Parse scheme list
-schemeList :: Parser SchemeVal
-schemeList = List <$> sepBy schemeExpr spaces
+-- | Parse pogger list
+poggerList :: Parser PoggerVal
+poggerList = List <$> sepBy poggerExpr spaces
 
--- | Parse dotted scheme list
-schemeDottedList :: Parser SchemeVal
-schemeDottedList = do
-  xs <- endBy schemeExpr spaces
-  x  <- char '.' >> spaces >> schemeExpr
+-- | Parse dotted pogger list
+poggerDottedList :: Parser PoggerVal
+poggerDottedList = do
+  xs <- endBy poggerExpr spaces
+  x  <- char '.' >> spaces >> poggerExpr
   return $ DottedList xs x
 
-schemeQuoted :: Parser SchemeVal
-schemeQuoted = do
+poggerQuoted :: Parser PoggerVal
+poggerQuoted = do
   char '\''
-  x <- schemeExpr
+  x <- poggerExpr
   return $ List [Atom "quote", x]
 
 -- | `(a b ,c) => ((quote a b) c)
 -- TODO unimplemented
-schemeQuasiQuoted :: Parser SchemeVal
-schemeQuasiQuoted = do
+poggerQuasiQuoted :: Parser PoggerVal
+poggerQuasiQuoted = do
   char '`'
-  x <- schemeExpr
+  x <- poggerExpr
   return $ List [Atom "quote", x]
 
-schemeNumeric :: Parser SchemeVal
-schemeNumeric =
-  try schemeFloat
-    <|> try schemeComplex
-    <|> try schemeRational
-    <|> try schemeInteger
+poggerNumeric :: Parser PoggerVal
+poggerNumeric =
+  try poggerFloat
+    <|> try poggerComplex
+    <|> try poggerRational
+    <|> try poggerInteger
 
--- | Parse scheme expression
-schemeExpr :: Parser SchemeVal
-schemeExpr = schemeAtom <|> schemeNumeric <|> schemeQuoted <|> do
+-- | Parse pogger expression
+poggerExpr :: Parser PoggerVal
+poggerExpr = poggerAtom <|> poggerNumeric <|> poggerQuoted <|> do
   char '('
-  x <- try schemeList <|> schemeDottedList
+  x <- try poggerList <|> poggerDottedList
   char ')'
   return x
 
 readExpr :: String -> String
-readExpr input = case parse schemeExpr "poggerScheme" input of
+readExpr input = case parse poggerExpr "poggerScheme" input of
   Left  err -> "No match " ++ show input
   Right val -> show val
