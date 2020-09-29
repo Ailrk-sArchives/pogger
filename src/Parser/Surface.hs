@@ -92,6 +92,30 @@ transformIndentation = do
 Before infix transformation @ a op b op c op ... @
 After infix transformation @ op a b c ... @
 
+If the first element in the expression is not an atom, then expression
+is a list of expressions. Then the infix rule propogate to the next
+level of parenthesis.
+
+For instance the first element of @ {} @ in the following expression is not
+an atom:
+@
+data (Maybe a)
+  {
+    Just : { a -> Maybe a }
+    Nothing : Nothing
+  }
+@
+
+So the infix rule propagate to each expressions it contains.
+This will be equivalent to
+@
+(data (Maybe a)
+  ({Just : { a -> Maybe a}}
+   {Nothing : Nothing}))
+@
+
+This rule is very useful to write definitions without too much noises.
+
 Infix transformation only happen after bracket transformation.
 -}
 transformInfix :: IndentParser String

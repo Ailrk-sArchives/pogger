@@ -3,16 +3,15 @@ data (Maybe a)
   Just a
   Nohting
 
-
 -- gadt
-data (Option a) where
+data (Option a)
   {
     Some a : { a -> Option a }
     None : None
   }
 
 -- typeclass
-class (Functor a) where
+class (Functor a)
   {
     map : { { a -> b } -> (f a) -> (f b) }
   }
@@ -25,5 +24,3 @@ instance (FunctorMaybe) (Functor Maybe)
         Nothing => Nothing
         Just a => Just (f a)
       }
-
-
