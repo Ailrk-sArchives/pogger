@@ -1,0 +1,8 @@
+cradle:
+  cabal:
+    - path: "./src"
+      component: "lib:pogger"
+    - path: "./test"
+      component: "test:pogger-test"
+    - path: "./app"
+      component: "exe:pogger-exe"

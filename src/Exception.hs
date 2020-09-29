@@ -1,9 +1,9 @@
 module Exception where
 
 import AST
-import Parser
+import Parser.Error
 
-data ListpError
+data PoggerError
     = NumArgs Integer [PoggerVal]
     | TypeMisMatch String PoggerVal
     | Parser ParseError

@@ -1,4 +1,12 @@
-module Parser where
+{-
+   Pogger is a s-expression based language, transform the surface syntax to
+   s-expression is the first step of the compilation.
+
+  Regular scheme macro expander can be used after we have the s-expression
+  format.
+-}
+module Parser.Sexp where
+
 
 
 import           Numeric
@@ -10,11 +18,6 @@ import           Text.Parsec.Expr              as Ex
 import           Text.Parsec.String             ( Parser )
 import           AST
 import           Debug.Trace
-
-data ParseError
-  = UnknownSymbol String
-  | BlockMismatch String
-  deriving Show
 
 -- | Non alpha numeric characters
 poggerSymbol :: Parser Char
@@ -82,15 +85,16 @@ poggerRational = sign >>= \s -> do
   dvisor <- decInteger
   return $ Rational denominator dvisor
 
+readBin :: (Eq a, Num a) => ReadS a
+readBin = readInt 2 (`elem` "01") digitToInt
+
 hexInteger = prefixedFormatToInteger "#x" readHex (many $ digit <|> upper)
 octInteger = prefixedFormatToInteger "#o" readOct (many $ oneOf "01234567")
 binInteger = prefixedFormatToInteger "#b" readBin (many $ oneOf "01")
-  where readBin = readInt 2 (`elem` "01") digitToInt
 
 hexFloat = prefixedFormatToFloat "#x" readHex (many $ digit <|> upper)
 octFloat = prefixedFormatToFloat "#o" readOct (many $ oneOf "01234567")
 binFloat = prefixedFormatToFloat "#b" readBin (many $ oneOf "01")
-  where readBin = readInt 2 (`elem` "01") digitToInt
 
 decFloat :: Parser Double
 decFloat = let num = many1 digit in read <$> sign <> num <> dot <> num
@@ -190,11 +194,13 @@ poggerNumeric =
     <|> try poggerRational
     <|> try poggerInteger
 
--- | Parse pogger expression
+-- | Top level pogger expression parser
 poggerExpr :: Parser PoggerVal
 poggerExpr = poggerAtom <|> poggerNumeric <|> poggerQuoted <|> do
   char '('
+  spaces
   x <- try poggerList <|> poggerDottedList
+  spaces
   char ')'
   return x
 
@@ -202,3 +208,4 @@ readExpr :: String -> String
 readExpr input = case parse poggerExpr "poggerScheme" input of
   Left  err -> "No match " ++ show input
   Right val -> show val
+
