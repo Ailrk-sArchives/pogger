@@ -20,6 +20,9 @@ __Sweet expression__: Use indentation to replace unnecessary brackets.
 
 __Bracket infix__: The readable sexp project uses [curly](curly) bracket to indicate the use of infix notation. No precedence support so the s expression structure is preserved. In progger both `{}` and `[]` will be used for infix bracket while `()` will be used for x expression brackets.
 
+__Colon bracket:__ A `:` can introduce a new layer of indentation from where it begins to the next unpaired right bracket. It can be
+used to make nested list more readable.
+
 __Currying__:
 I'll avoid the `neoteric expression ` because I want to support currying. so for function call like `{1 + }` will be a new function with type `Int -> Int` . Traditional lisp doesn't support currying by default. For scheme it's possible to achieve auto currying with macro like this
 ```scheme
@@ -67,43 +70,44 @@ define (foo n)
 __ADT__
 ```
 -- default ADT definition
-define-data (Maybe a)
+data (Maybe a)
   Just a
   Nothing
 
-(define-data (Maybe a) ((Just a) (Nothing)))
+(data (Maybe a) ((Just a) (Nothing)))
 
 -- with GADT
-define-data (Maybe a)
-  [ Just a : { a -> Maybe a } ]
-  [ Nothin : Maybe a ]
+data (Option a)
+  {
+    (Some a) :: { a -> Option a }
+    None :: None
+  }
 
-(define-data (Maybe a)
-  (: (Just a) (-> a (Maybe a)))
-  (: Nothing (Maybe a)))
 ```
 
 __typeclass__
 ```
 -- typeclass definition
-define-class (Functor a)
-  [ map : { { a -> b } -> (f a) -> (f b) } ]
+class (Functor a)
+  {
+    map :: { { a -> b } -> (f a) -> (f b) }
+  }
 
 -- equivalent s-expression form
-(define-class (Functor a)
-  (: map (-> (-> a b) (f a) (f b))))
 ```
 
 __Named instance__
 ```
 -- typeclass instance
-define-instance FunctorMaybe (Functor Maybe)
+instance (FunctorMaybe) (Functor Maybe)
   define (map f m)
     match m
-      [Nothing => Nothing]
-      [Just a => Just (f a)]
+      {
+        Nothing => Nothing
+        (Just a) => Just (f a)
+      }
 
-(define-instance FunctorMaybe (Functor Maybe)
+(instance FunctorMaybe (Functor Maybe)
   (define (map f m)
     (match (m) ((=> Nothing Nothing)
                 (=> (Just a) (Just (f a)))))))
@@ -113,18 +117,61 @@ define-instance FunctorMaybe (Functor Maybe)
 Pogger support do notation directly. A use of curly bracket is to make everything in it infix by default. Each indentation is a list, and the top level operator in that list will be infix. further nested operator still need bracket because there is no operator precedence.
 
 ```
-[run : Eff Unit]
-define run
+-- Using the infix bracket propagate property to get imperative style
+-- do notation.
+-- Here the infix notation is (<- : m a -> (a -> m b))
+-- do is a macro combine different parts.
+
+[ greet : String -> Eff Unit ]
+define (greet n)
   do {
-    a <- getArgs
-    readLine >>= |line| do {  -- lambda
-      writeLine "line" line
-      pure ()
-    }
-    putStrLn { a <> "some other string" } -- nested infix still need {}
+    name <- getArgs
+    putStrLn { "Hello" <> name <> "!" }
+  }
+
+
+-- some random function
+[ readSomeStuffs : String -> Eff Unit ]
+define (readSomeStuffs name)
+  do {
+    as <- getArgs
+    let :
+        a (match s { (List a _) => a })
+
+    define (bar n)  -- declare randomly
+      if (equal? n 1)
+        1
+        n
+
+    f <- readFile name
+    g <- readFile a
+
+    let :
+        dict (fromList (lines f))
+
+    mapM_ (spell dict) (words g)
   }
 ```
 
-#### Everythings are functions
-It looks like pogger needs to support special syntax like `->` and `do` , but the goal is everything should be a function, and if you like you can overload everything. `->` is just a function take a type and return another type, `:` is a function take a type annotation type and return a type annotation. `do` will take a list of operations as parameter; when execute it will insert `>>` between each lists to make it sequential. `<-` should be something reverse the order of parameters of `>>=`, but I'm not sure how to do that yet.
+#### Let and nested list
+```
+-- let
+-- How to handle two layers of parenthesis?
+-- Use : too! : is a noop served as separator. here use :
+-- to introduce another layer of indentation.
 
+(define (foo-1 a)
+  (let ((a 10)
+        (b 20))
+    (+ a b)))
+
+define (foo a)
+  let
+    :
+      a 10
+      b 20
+    + a b
+```
+
+#### Everything is either a function or a macro
+It looks like pogger needs to support special syntax like `->` and `do` , but the goal is everything should be a function, and if you like you can overload everything. `->` is just a function take a type and return another type, `::` is a function take a type annotation type and return a type annotation. `do` and `->` will be a macro that convert the syntax of `>>=`, and it doesn't need special implementation.
