@@ -93,8 +93,8 @@ Before infix transformation @ a op b op c op ... @
 After infix transformation @ op a b c ... @
 
 If the first element in the expression is not an atom, then expression
-is a list of expressions. Then the infix rule propogate to the next
-level of parenthesis.
+is a list of expressions. Then the infix rule will recursively
+propogate to next levels of expressions.
 
 For instance the first element of @ {} @ in the following expression is not
 an atom:
@@ -144,6 +144,3 @@ infixParens p = do
   infixR
   return n
   where infixL = (char '{') <|> char '['
-
-
-

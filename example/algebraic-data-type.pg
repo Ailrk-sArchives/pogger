@@ -1,12 +1,21 @@
--- normal adt
+-- infix parenthesis: { }, [ ] -- normal adt
+
+-- normal algebraic data type
 data (Maybe a)
   Just a
   Nohting
 
--- gadt
+-- GADT
+-- { } see the first element is not an atom, so
+-- the infix rule propagate to it's sublist.
+-- (:) is the infix operator used in the definition of
+-- the  data constructor.
+-- PS: because there is no precedence, `Some a` still need to be
+--     wrapped in parenthesis.
+
 data (Option a)
   {
-    Some a : { a -> Option a }
+    (Some a) : { a -> Option a }
     None : None
   }
 
@@ -22,5 +31,5 @@ instance (FunctorMaybe) (Functor Maybe)
     match m
       {
         Nothing => Nothing
-        Just a => Just (f a)
+        (Just a) => Just (f a)
       }

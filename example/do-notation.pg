@@ -1,0 +1,34 @@
+-- Using the infix bracket propagate property to get imperative style
+-- do notation.
+-- Here the infix notation is (<- : m a -> (a -> m b))
+-- do is a macro combine different parts.
+
+[ greet : String -> Eff Unit ]
+define (greet n)
+  do {
+    name <- getArgs
+    putStrLn { "Hello" <> name <> "!" }
+  }
+
+
+-- some random function
+[ readSomeStuffs : String -> Eff Unit ]
+define (readSomeStuffs name)
+  do {
+    as <- getArgs
+    let
+      a (match s { (List a _) => a })
+
+    define (bar n)  -- declare randomly
+      if (equal? n 1)
+        1
+        n
+
+    f <- readFile name
+    g <- readFile a
+
+    let
+      dict (fromList (lines f))
+
+    mapM_ (spell dict) (words g)
+  }
