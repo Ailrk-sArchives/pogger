@@ -7,6 +7,7 @@
 
 module Parser.Surface where
 
+import           Text.Parsec.String
 import           Text.Parsec             hiding ( State )
 import           Text.Parsec.Language           ( emptyDef )
 import qualified Text.Parsec.Token             as Tok
@@ -84,8 +85,7 @@ transformIndentation = do
       modifyState $ dropWhile (/= indentLevel)
       return undefined
   return undefined
- where
-   continue = undefined
+  where continue = undefined
 
 
 {- | Convert prefix notation into infix notation.
@@ -107,4 +107,19 @@ The job of bracket transformation is to convert @ {} @  and @ [] @ int @ () @,an
 -}
 transformBracket :: IndentParser String
 transformBracket = undefined
+
+
+-- | parse infix parenthesis
+infixParens :: Parser a -> Parser a
+infixParens p = do
+  c <- infixL
+  let infixR = char $ case c of
+        '{' -> '}'
+        '[' -> ']'
+  n <- p
+  infixR
+  return n
+  where infixL = (char '{') <|> char '['
+
+
 

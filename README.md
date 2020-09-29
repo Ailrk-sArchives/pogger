@@ -73,7 +73,7 @@ define-data (Maybe a)
 
 (define-data (Maybe a) ((Just a) (Nothing)))
 
--- with GATD
+-- with GADT
 define-data (Maybe a)
   [ Just a : { a -> Maybe a } ]
   [ Nothin : Maybe a ]

@@ -1,0 +1,5 @@
+[ fact : { Int -> Int } ]
+define (fact n)
+  if (equal? n 0)
+    1
+    { n * (fact { n - 1 }) }

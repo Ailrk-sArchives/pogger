@@ -208,4 +208,3 @@ readExpr :: String -> String
 readExpr input = case parse poggerExpr "poggerScheme" input of
   Left  err -> "No match " ++ show input
   Right val -> show val
-
