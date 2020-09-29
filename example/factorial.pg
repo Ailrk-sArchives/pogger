@@ -1,4 +1,4 @@
-[ fact : { Int -> Int } ]
+[ fact :: { Int -> Int } ]
 define (fact n)
   if (equal? n 0)
     1

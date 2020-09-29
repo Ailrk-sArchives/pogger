@@ -16,8 +16,8 @@ define (greet n)
 define (readSomeStuffs name)
   do {
     as <- getArgs
-    let
-      a (match s { (List a _) => a })
+    let :
+        a (match s { (List a _) => a })
 
     define (bar n)  -- declare randomly
       if (equal? n 1)
@@ -27,8 +27,8 @@ define (readSomeStuffs name)
     f <- readFile name
     g <- readFile a
 
-    let
-      dict (fromList (lines f))
+    let :
+        dict (fromList (lines f))
 
     mapM_ (spell dict) (words g)
   }
