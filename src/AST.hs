@@ -21,7 +21,7 @@ data PoggerVal = Atom String
 
 instance Pretty PoggerVal where
   pretty (Atom    str  ) = pretty str
-  pretty (List xs) = prettyList xs
+  pretty (List    xs   ) = prettyList xs
   pretty (Integer int  ) = pretty int
   pretty (Float   float) = pretty float
   pretty (Rational de d) = pretty de <+> pretty "/" <+> pretty d

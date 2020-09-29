@@ -49,7 +49,7 @@ No plan for type families yet. Might try to do it when decide to do generic prog
 
 __basic__
 ```
-[ fact : {Int -> Int} ]
+[ fact : { Int -> Int } ]
 define (fact n)
   if (zero? n)
     1

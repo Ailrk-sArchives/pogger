@@ -25,6 +25,7 @@ library
     , Exception
     , AST
     , Repl
+    , Typechecker
   -- other-extensions:
   build-depends:
       base ^>=4.13.0.0
