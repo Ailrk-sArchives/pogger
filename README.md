@@ -52,14 +52,14 @@ No plan for type families yet. Might try to do it when decide to do generic prog
 
 __basic__
 ```
-[ fact : { Int -> Int } ]
+[ fact :: { Int -> Int } ]
 define (fact n)
   if (zero? n)
     1
     { n * (fact { n - 1 })}
 ```
 
-__inpace annotation__
+__inplace annotation__
 ```
 -- inplace annotation
 define (foo n)

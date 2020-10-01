@@ -58,9 +58,7 @@ The algorithm:
 
 Before the tranformation
 @
-(define (fact n)
-  (if (<= n 1)
-    (* n (fact (- n 1)))))
+(define (fact n) (if (<= n 1) (* n (fact (- n 1)))))
 @
 
 After the transformation

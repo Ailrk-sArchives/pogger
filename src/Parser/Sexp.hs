@@ -88,13 +88,22 @@ poggerRational = sign >>= \s -> do
 readBin :: (Eq a, Num a) => ReadS a
 readBin = readInt 2 (`elem` "01") digitToInt
 
-hexInteger = prefixedFormatToInteger "#x" readHex (many $ digit <|> upper)
-octInteger = prefixedFormatToInteger "#o" readOct (many $ oneOf "01234567")
-binInteger = prefixedFormatToInteger "#b" readBin (many $ oneOf "01")
+hex :: Parser String
+hex = many $ digit <|> upper
 
-hexFloat = prefixedFormatToFloat "#x" readHex (many $ digit <|> upper)
-octFloat = prefixedFormatToFloat "#o" readOct (many $ oneOf "01234567")
-binFloat = prefixedFormatToFloat "#b" readBin (many $ oneOf "01")
+oct :: Parser String
+oct = many $ oneOf "01234567"
+
+bin :: Parser String
+bin = many $ oneOf "01"
+
+hexInteger = prefixedFormatToInteger "#x" readHex hex
+octInteger = prefixedFormatToInteger "#o" readOct oct
+binInteger = prefixedFormatToInteger "#b" readBin bin
+
+hexFloat = prefixedFormatToFloat "#x" readHex hex
+octFloat = prefixedFormatToFloat "#o" readOct oct
+binFloat = prefixedFormatToFloat "#b" readBin bin
 
 decFloat :: Parser Double
 decFloat = let num = many1 digit in read <$> sign <> num <> dot <> num
