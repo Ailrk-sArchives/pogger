@@ -64,9 +64,8 @@ test-suite pogger-test
       Paths_pogger
     , ParserSpec
   hs-source-dirs:      test
-  main-is:             Spec.hs
+  main-is:             Main.hs
   build-depends:
       base >=4.13 && <5
-    , hspec-discover
     , hspec
     , transformers
