@@ -28,7 +28,7 @@ library
     , Typechecker
   -- other-extensions:
   build-depends:
-      base ^>=4.13.0.0
+      base >=4.13 && <5
     , parsec
     , prettyprinter
     , text
@@ -65,7 +65,7 @@ test-suite pogger-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   build-depends:
-      base >=47 && < 5
+      base >=4.13 && <5
     , hspec-discover
     , hspec
     , transformers
