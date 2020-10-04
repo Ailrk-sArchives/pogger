@@ -48,7 +48,6 @@ executable pogger-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
-    , pogger
     , bytestring
     , containers
     , haskeline
@@ -67,7 +66,6 @@ test-suite pogger-test
   main-is:             Spec.hs
   build-depends:
       base >=47 && < 5
-    , pogger
     , hspec-discover
     , hspec
     , transformers
