@@ -21,6 +21,7 @@ library
   exposed-modules:
       Parser.Surface
     , Parser.Sexp
+    , Parser.Error
     , Evaluator
     , Exception
     , AST
