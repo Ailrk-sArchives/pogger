@@ -24,7 +24,7 @@ __Colon bracket:__ A `:` can introduce a new layer of indentation from where it 
 used to make nested list more readable.
 
 __Currying__:
-I'll avoid the `neoteric expression ` because I want to support currying. so for function call like `{1 + }` will be a new function with type `Int -> Int` . Traditional lisp doesn't support currying by default. For scheme it's possible to achieve auto currying with macro like this
+I'll avoid the `neoteric expression ` because I want to support currying. Functin calls like `{1 + _}` will be a new function with type `Int -> Int` . Traditional lisp doesn't support currying by default. For scheme it's possible to achieve auto currying with macro like this
 ```scheme
 (define-syntax define-curried
   (syntax-rules ()
