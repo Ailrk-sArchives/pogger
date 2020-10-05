@@ -7,6 +7,16 @@ import           Text.Parsec
 
 spec :: Spec
 spec = do
+  sexp
+
+-- | test surface syntax transformation.
+surface :: Spec
+surface = do
+  it "surface 1" $ True `shouldBe` True
+
+-- | test s-expression parser.
+sexp :: Spec
+sexp = do
   it "sexpression test 1"
     $ let
         source
