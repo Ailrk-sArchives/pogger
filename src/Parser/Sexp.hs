@@ -18,6 +18,8 @@ import           Text.Parsec.Expr              as Ex
 import           Text.Parsec.String             ( Parser )
 import           AST
 import           Debug.Trace
+import           Control.Monad.Except
+import           Exception
 
 -- | Non alpha numeric characters
 poggerSymbol :: Parser Char
@@ -213,7 +215,7 @@ poggerExpr = poggerAtom <|> poggerNumeric <|> poggerQuoted <|> do
   char ')'
   return x
 
-readExpr :: String -> String
+readExpr :: String -> ThrowsError PoggerVal
 readExpr input = case parse poggerExpr "poggerScheme" input of
-  Left  err -> "No match " ++ show input
-  Right val -> show val
+  Left  err -> throwError $ ParserError err
+  Right val -> return val
