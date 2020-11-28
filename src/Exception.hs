@@ -1,9 +1,11 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Exception where
 
 import           AST
 import           Control.Monad.Except
-import           Text.Parsec                    ( ParseError )
+import           Text.Parsec          (ParseError)
 
+-- | PoggerError can be handled as exceptions.
 data PoggerError
     = NumArgs Integer [PoggerVal]
     | TypeMisMatch String PoggerVal
@@ -33,10 +35,11 @@ instance Show PoggerError where
 type ThrowsError = Either PoggerError
 
 -- catch throws error
-trapError :: ThrowsError String -> ThrowsError String
+trapError :: (MonadError PoggerError m)
+          => m String -> m String
 trapError action = catchError action (return . show)
 
 -- extract value from Right.
 extractValue :: ThrowsError a -> a
-extractValue (Right val) = val
-extractValue _           = error "Can't extract value from an error"
+extractValue (Right v) = v
+extractValue _         = error "Can't extract value from an error"

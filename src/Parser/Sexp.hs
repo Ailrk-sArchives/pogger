@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-
    Pogger is a s-expression based language, transform the surface syntax to
    s-expression is the first step of the compilation.
@@ -9,17 +10,15 @@ module Parser.Sexp where
 
 
 
-import           Numeric
-import           Data.Char                      ( digitToInt )
-import           Data.Maybe
-import qualified Data.Map                      as M
-import           Text.Parsec
-import           Text.Parsec.Expr              as Ex
-import           Text.Parsec.String             ( Parser )
 import           AST
-import           Debug.Trace
 import           Control.Monad.Except
+import           Data.Char            (digitToInt)
+import qualified Data.Map             as M
+import           Data.Maybe
 import           Exception
+import           Numeric
+import           Text.Parsec
+import           Text.Parsec.String   (Parser)
 
 -- | Non alpha numeric characters
 poggerSymbol :: Parser Char
@@ -61,31 +60,32 @@ poggerAtom = do
 Support both the integer and floating point form of
 hexdecimal (#x), binary (#d), oct (#o).
 -}
-poggerFloat :: Parser PoggerVal
-poggerFloat =
-  Float <$> (try decFloat <|> try hexFloat <|> try octFloat <|> try binFloat)
+poggerReal :: Parser PoggerVal
+poggerReal =
+  Number . Real <$> (try decFloat <|> try hexFloat <|> try octFloat <|> try binFloat)
 
 poggerInteger :: Parser PoggerVal
 poggerInteger =
-  Integer
+  Number . Integer
     <$> (try decInteger <|> try hexInteger <|> try octInteger <|> try binInteger
         )
 
 poggerComplex :: Parser PoggerVal
 poggerComplex = sign >>= \s -> do
-  real <- (try decFloat <|> (fromIntegral <$> decInteger))
-    >>= \r -> return $ if s == "-" then negate r else r
+  real <- (try decFloat <|> (fromIntegral <$> decInteger)) >>= \r ->
+    return $ if s == "-" then negate r else r
   char '+'
   img <- try decFloat <|> try (fromIntegral <$> decInteger)
   char 'i'
-  return $ Complex real img
+  return . Number $ Complex real img
 
 poggerRational :: Parser PoggerVal
-poggerRational = sign >>= \s -> do
+poggerRational =  do
+  s <- sign
   denominator <- decInteger >>= \d -> return $ if s == "-" then negate d else d
   char '/'
   dvisor <- decInteger
-  return $ Rational denominator dvisor
+  return . Number $ Rational denominator dvisor
 
 readBin :: (Eq a, Num a) => ReadS a
 readBin = readInt 2 (`elem` "01") digitToInt
@@ -134,7 +134,7 @@ prefixedFormatToFloat pstr rs num = try double <|> try int
 
 prefixedFormatToInteger
   :: String -> ReadS Integer -> Parser String -> Parser Integer
-prefixedFormatToInteger pstr rs num = prefix >> sign >>= \s ->
+prefixedFormatToInteger pstr rs num = prefix *> sign >>= \s ->
   getPart rs s <$> num
   where prefix = string pstr
 
@@ -144,7 +144,7 @@ getPart rs sign | sign == "-" = negate . pick
   where pick = fst . head . rs
 
 sign :: Parser String
-sign = (string "+" >> return "") <|> string "-" <|> return ""
+sign = (string "+" >> return "") <|> string "-" <|> pure ""
 
 dot :: Parser String
 dot = string "."
@@ -181,7 +181,7 @@ poggerList = List <$> sepBy poggerExpr spaces
 poggerDottedList :: Parser PoggerVal
 poggerDottedList = do
   xs <- endBy poggerExpr spaces
-  x  <- char '.' >> spaces >> poggerExpr
+  x  <- char '.' *> spaces *> poggerExpr
   return $ DottedList xs x
 
 poggerQuoted :: Parser PoggerVal
@@ -200,7 +200,7 @@ poggerQuasiQuoted = do
 
 poggerNumeric :: Parser PoggerVal
 poggerNumeric =
-  try poggerFloat
+  try poggerReal
     <|> try poggerComplex
     <|> try poggerRational
     <|> try poggerInteger
@@ -215,7 +215,8 @@ poggerExpr = poggerAtom <|> poggerNumeric <|> poggerQuoted <|> do
   char ')'
   return x
 
-readExpr :: String -> ThrowsError PoggerVal
+-- | Parser string to pogger values.
+readExpr :: (MonadError PoggerError m) => String -> m PoggerVal
 readExpr input = case parse poggerExpr "poggerScheme" input of
   Left  err -> throwError $ ParserError err
   Right val -> return val
