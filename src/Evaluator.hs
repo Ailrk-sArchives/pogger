@@ -13,7 +13,7 @@ import           Exception
 
 
 -- the core evaluator function
-eval :: (MonadError PoggerError m) =>  PoggerVal -> m PoggerVal
+eval :: PoggerVal -> ThrowsError PoggerVal
 
 -- eval data
 eval val@(String _)              = return val
@@ -23,26 +23,29 @@ eval val@(Number (Rational _ _)) = return val
 eval val@(Number (Complex _ _))  = return val
 eval val@(Bool _)                = return val
 eval val@(Char _)                = return val
-
--- eval quotes
 eval (List [Atom "quote", val])  = return val
--- eval (List (Atom func : args))  = mapM eval args >>= apply
+eval (List (Atom func : args))   = mapM eval args >>= apply func
+eval other = throwError $ BadSpecialForm "Unrecognized form" other
 
+apply :: String -> [PoggerVal] -> ThrowsError PoggerVal
+apply func args = maybe (throwError $ NotFunction "Undefined: " func) ($ args) (H.lookup func primitives)
 
--- apply :: String -> [PoggerVal] -> PoggerVal
--- apply func args = maybe (Bool False) ($ args) $ lookup func primitives
+primitives :: H.HashMap String ([PoggerVal] -> ThrowsError PoggerVal)
+primitives = H.fromList [ ("+", numericBinop (+))
+                        , ("-", numericBinop (-))
+                        , ("*", numericBinop (*))
+                        , ("/", numericBinop (/))
+                        ]
 
+numericBinop :: (PoggerNum -> PoggerNum -> PoggerNum) -> [PoggerVal] -> ThrowsError PoggerVal
+numericBinop _ []      = throwError $ NumArgs 2 []
+numericBinop _ val@[_] = throwError $ NumArgs 2 val
+numericBinop op params = mapM unpackNum params >>= return .Number . foldl1 op
 
-primitives :: H.HashMap String ([PoggerVal] -> PoggerVal)
-primitives = H.fromList []
-
-
-numericBinop :: Num a => (a -> a -> a) -> [PoggerVal] -> PoggerVal
-numericBinop op  params = Number $ foldl1 op $ unpackNum <$> params
-
-unpackNum :: PoggerVal -> PoggerNum
-unpackNum (Number n) = n
-unpackNum _          = error "not number"
+unpackNum :: PoggerVal -> ThrowsError PoggerNum
+unpackNum (Number n) = return n
+unpackNum (List [n]) = unpackNum n
+unpackNum other      = throwError $ TypeMisMatch "number" other
 
 
 -- existential
@@ -118,27 +121,55 @@ instance Num PoggerNum where
   fromInteger n = Integer n
 
   -- signum
-  signum (Integer n) | n > 0 = Integer 1
-    | n == 0 = Integer 0
-    | n < 0 = Integer (-1)
+  signum (Integer n) = Integer (signum n)
 
-  signum (Real n) | n > 0 = Real 1
-    | n == 0 = Real 0
-    | otherwise = Real (-1)
+  signum (Real n) = Real (signum n)
 
   signum (Rational a b) | (a > 0 && b > 0) || (a < 0 && b < 0) = Rational 1 b
     | (a == 0) = Rational 0 b
     | otherwise = Rational (-1) b
 
-  -- Not used TODO
-  signum (Complex _ _) = Complex 1 1
+  signum (Complex a b) = Complex (signum a) (signum b)
 
 
 instance Fractional PoggerNum where
 
-  -- TODO not full
+  (Complex a b) / (Complex c d) =
+    let v = (a :+ b) / (c :+ d)
+     in Complex (realPart v) (imagPart v)
+
+  (Complex a b) / (Real n) = Complex (a / n) b
+  (Real n) / (Complex a b)  =
+    let v1 = (n :+ 0)
+        v2 = (a :+ b)
+        v3 = v1 / v2
+     in (Complex (realPart v3) (imagPart v3))
+
+  (Complex a b) / (Integer n) = Complex (a / fromIntegral n) b
+  (Integer n) / (Complex a b)  =
+    let v1 = (fromIntegral n :+ 0)
+        v2 = (a :+ b)
+        v3 = v1 / v2
+     in (Complex (realPart v3) (imagPart v3))
+
+
+  (Complex a b) / (Rational c d) = (Complex (a / (fromIntegral c / fromIntegral d)) b)
+
+  (Rational c d) / complex =
+    let v1 = Real (fromIntegral c / fromIntegral d)
+     in v1 / complex
+
+-- TODO fix
+  (Integer a) / (Integer b) = Rational a b
+  (Integer a) / (Real b) = Real (fromIntegral a / b)
+  (Real b) / (Integer a) = Real (fromIntegral a / b)
+  (Rational c d) / (Integer a) = Rational c (d * a)
+  (Integer a) / (Rational c d) = Rational (a * d) c
+
   (Real a) / (Real b)             = Real (a / b)
-  (Integer a) / (Integer b)       = Real (fromIntegral a / fromIntegral b)
+  (Real a) / (Rational c d) = Real (a / (fromIntegral c / fromIntegral d))
+  (Rational c d) / (Real a) = Real ((fromIntegral c / fromIntegral d) / a)
+
   (Rational a b) / (Rational c d) = Rational (a * c) (b * d)
 
   fromRational v = Rational (numerator v) (denominator v)
