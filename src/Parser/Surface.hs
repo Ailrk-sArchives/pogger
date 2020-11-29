@@ -7,11 +7,10 @@
 
 module Parser.Surface where
 
+import           Text.Parsec            hiding (State)
+import           Text.Parsec.Language   (emptyDef)
 import           Text.Parsec.String
-import           Text.Parsec             hiding ( State )
-import           Text.Parsec.Language           ( emptyDef )
-import qualified Text.Parsec.Token             as Tok
-import           Control.Monad.Identity
+import qualified Text.Parsec.Token      as Tok
 
 lexer :: Tok.TokenParser ()
 lexer = Tok.makeTokenParser style
@@ -68,6 +67,7 @@ define (fact n)
     * n (fact (- n 1))
 @
 -}
+
 transformIndentation :: IndentParser String
 transformIndentation = do
   stack <- getState

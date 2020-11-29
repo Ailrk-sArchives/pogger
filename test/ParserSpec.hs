@@ -29,10 +29,15 @@ sexp = do
           , List [Atom "foo", Atom "a"]
           , List
             [ Atom "if"
-            , List [Atom "eq?", Atom "a", Integer 10]
-            , List [Atom "+", Atom "a", Rational 10 3]
-            , List [Atom "-", Atom "a", Complex 10 3]
+            , List [Atom "eq?", Atom "a", Number $ Integer 10]
+            , List [Atom "+", Atom "a", Number $ Rational 10 3]
+            , List [Atom "-", Atom "a", Number $ Complex 10 3]
             ]
           ]
       in
         parse poggerExpr "scheme1" source `shouldBe` ast
+
+
+-- | test numerical operation primitives.
+num :: Spec
+num = undefined

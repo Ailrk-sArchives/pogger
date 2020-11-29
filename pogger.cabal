@@ -25,7 +25,6 @@ library
     , Exception
     , AST
     , Repl
-    , Typechecker
   -- other-extensions:
   build-depends:
       base >=4.13 && <5
@@ -34,10 +33,10 @@ library
     , text
     , containers
     , vector
-    , llvm-hs >=9.0
-    , llvm-hs-pure >=9.0
     , mtl
     , transformers
+    , unordered-containers
+    , unordered-containers
   hs-source-dirs: src
   default-language:    Haskell2010
 
