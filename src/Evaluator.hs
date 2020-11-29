@@ -134,6 +134,8 @@ instance Num PoggerNum where
 
 instance Fractional PoggerNum where
 
+  (Rational a b) / (Rational c d) = Rational (a * c) (b * d)
+
   (Complex a b) / (Complex c d) =
     let v = (a :+ b) / (c :+ d)
      in Complex (realPart v) (imagPart v)
@@ -152,24 +154,23 @@ instance Fractional PoggerNum where
         v3 = v1 / v2
      in (Complex (realPart v3) (imagPart v3))
 
-
   (Complex a b) / (Rational c d) = (Complex (a / (fromIntegral c / fromIntegral d)) b)
 
   (Rational c d) / complex =
     let v1 = Real (fromIntegral c / fromIntegral d)
      in v1 / complex
 
--- TODO fix
   (Integer a) / (Integer b) = Rational a b
   (Integer a) / (Real b) = Real (fromIntegral a / b)
   (Real b) / (Integer a) = Real (fromIntegral a / b)
+
   (Rational c d) / (Integer a) = Rational c (d * a)
-  (Integer a) / (Rational c d) = Rational (a * d) c
+  (Integer a) / (Rational c d) = Rational (a * c) d
 
   (Real a) / (Real b)             = Real (a / b)
+
   (Real a) / (Rational c d) = Real (a / (fromIntegral c / fromIntegral d))
   (Rational c d) / (Real a) = Real ((fromIntegral c / fromIntegral d) / a)
 
-  (Rational a b) / (Rational c d) = Rational (a * c) (b * d)
 
   fromRational v = Rational (numerator v) (denominator v)
