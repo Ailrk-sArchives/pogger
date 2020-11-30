@@ -11,11 +11,9 @@ module Parser.Sexp where
 
 
 import           AST
-import           Control.Monad.Except
 import           Data.Char            (digitToInt)
 import qualified Data.Map             as M
 import           Data.Maybe
-import           Exception
 import           Numeric
 import           Text.Parsec
 import           Text.Parsec.String   (Parser)
@@ -214,9 +212,3 @@ poggerExpr = poggerAtom <|> poggerNumeric <|> poggerQuoted <|> do
   spaces
   char ')'
   return x
-
--- | Parser string to pogger values.
-readExpr :: (MonadError PoggerError m) => String -> m PoggerVal
-readExpr input = case parse poggerExpr "poggerScheme" input of
-  Left  err -> throwError $ ParserError err
-  Right val -> return val

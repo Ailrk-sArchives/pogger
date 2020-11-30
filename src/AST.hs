@@ -19,7 +19,7 @@ data PoggerVal where
   Bool :: Bool -> PoggerVal
   Char :: Char -> PoggerVal
   Number :: PoggerNum -> PoggerVal
-  deriving stock Eq
+  deriving stock (Eq, Read)
 
 
 data PoggerNum where
@@ -27,14 +27,17 @@ data PoggerNum where
   Real :: Double -> PoggerNum
   Rational :: Integer -> Integer -> PoggerNum
   Complex :: Double  -> Double -> PoggerNum
-  deriving stock (Eq, Show)
+  deriving stock (Eq, Show, Read)
 
 instance Pretty PoggerVal where
   pretty (Atom    str  )          = pretty str
   pretty (List    xs   )          = prettyList xs
   pretty (Number (Integer int))   = pretty int
   pretty (Number (Real float))    = pretty float
-  pretty (Number (Rational de d)) = pretty (show de <> "/" <> show d)
+  pretty (Number (Rational de d)) = pretty
+    (case d of
+       1 -> show de
+       _ -> show de <> "/" <> show d)
   pretty (Number (Complex  r  i)) = pretty (show r <> "+" <> show i <> "i")
   pretty (Bool b       )          = if b then pretty "#t" else pretty "#f"
   pretty (Char c       )          = pretty $ "\\#" ++ [c]
