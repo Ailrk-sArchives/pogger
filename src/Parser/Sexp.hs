@@ -136,6 +136,7 @@ prefixedFormatToInteger pstr rs num = prefix *> sign >>= \s ->
   getPart rs s <$> num
   where prefix = string pstr
 
+-- get part of the
 getPart :: (Eq a, Num a) => ReadS a -> String -> String -> a
 getPart rs sign | sign == "-" = negate . pick
                 | otherwise   = pick
