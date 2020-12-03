@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Exception where
 
 import           AST
@@ -14,6 +16,7 @@ data PoggerError
     | NotFunction String String
     | UnboundVar String String
     | Default String
+    deriving stock (Eq)
 
 
 showPoggerError :: PoggerError -> String
