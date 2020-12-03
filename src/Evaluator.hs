@@ -65,6 +65,10 @@ primitives = H.fromList
   , ("string>?", strBoolBinop (>))
   , ("string<=?", strBoolBinop (<=))
   , ("string>=?", strBoolBinop (>=))
+
+  , ("cons", cons)
+  , ("cdr", cdr)
+  , ("car", car)
   ]
 
 
@@ -159,10 +163,26 @@ poggerRemainder = mkPoggerPartialIntBinop rem
 -- | list operations.
 
 cons :: [PoggerVal] -> ThrowsError PoggerVal
-cons = undefined
+cons [a, List []] = return $ List [a]
+cons [a, List xs] = return $ List (a : xs)
+cons [a, b]       = return $ DottedList [a] b
+cons others       = throwError $ NumArgs 2 others
 
 car :: [PoggerVal] -> ThrowsError PoggerVal
-car = undefined
+car [List (x:_)]         = return x
+car [DottedList (x:_) _] = return x
+car [others]             = throwError $ TypeMisMatch "pair" others
+car others               = throwError $ NumArgs 1 others
 
 cdr :: [PoggerVal] -> ThrowsError PoggerVal
-cdr = undefined
+cdr [List (_:xs)]         = return $ List xs
+cdr [DottedList [_] x]    = return $ x
+cdr [DottedList (_:xs) x] = return $ DottedList xs x
+cdr [others]              = throwError $ TypeMisMatch "pair" others
+cdr others                = throwError $ NumArgs 1 others
+
+eqv :: [PoggerVal] -> ThrowsError PoggerVal
+eqv = undefined
+
+equal :: [PoggerVal] -> ThrowsError PoggerVal
+equal = undefined

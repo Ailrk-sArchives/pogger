@@ -8,6 +8,7 @@
 module AST where
 
 import           Data.Complex
+import           Data.List
 import           Data.Ratio
 import           Prettyprinter
 
@@ -37,7 +38,20 @@ data PoggerNum where
 
 instance Pretty PoggerVal where
   pretty (Atom    str  )          = pretty str
-  pretty (List    xs   )          = prettyList xs
+  pretty (List    xs   )          = mconcat $
+    [pretty "'("] <> (intersperse (pretty " ") $ pretty <$> xs)
+                  <> [pretty ")"]
+  pretty (DottedList [x] y) = pretty "'("
+                            <> pretty x
+                            <> pretty " . "
+                            <> pretty y
+                            <> pretty ")"
+  pretty (DottedList xs y) = mconcat $ l (pretty <$> xs)
+    where
+      l xs = [pretty "'(" ]
+          <> xs
+          <> [pretty " . " , pretty y , pretty ")"]
+
   pretty (Number (Integer int))   = pretty int
   pretty (Number (Real float))    = pretty float
   pretty (Number (Rational de d)) = pretty

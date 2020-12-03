@@ -10,6 +10,7 @@ import           Control.Monad.Except
 import           Evaluator
 import           Exception
 import           Parser.Sexp
+import           Prettyprinter
 import           Text.Parsec
 
 -- | Parser string to pogger values.
@@ -23,6 +24,6 @@ repl :: IO ()
 repl = do
   putStr "> "
   line <- getLine
-  val <- return $ fmap show $ readExpr line >>= eval
+  val <- return $ fmap (show . pretty) $ readExpr line >>= eval
   putStrLn . extractValue . trapError $ val
   repl
