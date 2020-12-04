@@ -5,18 +5,6 @@ module Exception where
 
 import           AST
 import           Control.Monad.Except
-import           Text.Parsec          (ParseError)
-
--- | PoggerError can be handled as exceptions.
-data PoggerError
-    = NumArgs !Integer ![PoggerVal]
-    | TypeMisMatch !String !PoggerVal
-    | ParserError !ParseError
-    | BadSpecialForm !String !PoggerVal
-    | NotFunction !String !String
-    | UnboundVar !String !String
-    | Default !String
-    deriving stock (Eq)
 
 
 showPoggerError :: PoggerError -> String
@@ -33,9 +21,6 @@ showPoggerError (Default str                  ) = str
 
 instance Show PoggerError where
   show = showPoggerError
-
-
-type ThrowsError = Either PoggerError
 
 -- catch throws error
 trapError :: (MonadError PoggerError m)
