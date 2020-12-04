@@ -32,7 +32,7 @@ eval (List [Atom "if", pred, seq, alt]) =
 eval (List (Atom func : args))   = traverse eval args >>= apply func
 
 eval other = throwError $ BadSpecialForm "Unrecognized form" other
-
+{-# INLINE eval #-}
 
 -- | apply a function to paramters.
 apply :: String -> [PoggerVal] -> ThrowsError PoggerVal
@@ -69,6 +69,8 @@ primitives = H.fromList
   , ("cons", cons)
   , ("cdr", cdr)
   , ("car", car)
+
+  , ("eq?", eqv)
   ]
 
 
@@ -167,12 +169,14 @@ cons [a, List []] = return $ List [a]
 cons [a, List xs] = return $ List (a : xs)
 cons [a, b]       = return $ DottedList [a] b
 cons others       = throwError $ NumArgs 2 others
+{-# INLINE cons #-}
 
 car :: [PoggerVal] -> ThrowsError PoggerVal
 car [List (x:_)]         = return x
 car [DottedList (x:_) _] = return x
 car [others]             = throwError $ TypeMisMatch "pair" others
 car others               = throwError $ NumArgs 1 others
+{-# INLINE car #-}
 
 cdr :: [PoggerVal] -> ThrowsError PoggerVal
 cdr [List (_:xs)]         = return $ List xs
@@ -180,9 +184,22 @@ cdr [DottedList [_] x]    = return $ x
 cdr [DottedList (_:xs) x] = return $ DottedList xs x
 cdr [others]              = throwError $ TypeMisMatch "pair" others
 cdr others                = throwError $ NumArgs 1 others
+{-# INLINE cdr #-}
 
+-- | strong equality
 eqv :: [PoggerVal] -> ThrowsError PoggerVal
-eqv = undefined
+eqv [(Bool a), (Bool b)]     =  return . Bool $ a == b
+eqv [(Number a), (Number b)] =  return . Bool $ a == b
+eqv [(String a), (String b)] =  return . Bool $ a == b
+eqv [(Atom a), (Atom b)]     =  return . Bool $ a == b
+eqv [(DottedList xs x), (DottedList ys y)]     =
+  eqv [List $ xs ++ [x], List $ ys ++ [y]]
+eqv [(List xs), (List ys)]     =  return . Bool $ xs == ys
+eqv [_, _] = return . Bool $ False
+eqv other = throwError $ NumArgs 2 other
+{-# INLINE eqv #-}
 
+-- | weak equality.
 equal :: [PoggerVal] -> ThrowsError PoggerVal
 equal = undefined
+{-# INLINE equal #-}
