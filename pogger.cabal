@@ -23,6 +23,7 @@ library
     , Parser.Sexp
     , Evaluator
     , Exception
+    , Env
     , AST
     , Repl
   -- other-extensions:

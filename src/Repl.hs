@@ -19,11 +19,18 @@ readExpr input = case parse poggerExpr "poggerScheme" input of
   Left  err -> throwError $ ParserError err
   Right val -> return val
 
+
+until' :: Monad m => (a -> Bool) -> m a -> (a -> m ()) -> m ()
+until' pred prompt action = do
+  val <- prompt
+  if pred val
+     then return ()
+     else action val >> until' pred prompt action
+
 -- | repl entrance.
 repl :: IO ()
 repl = do
   putStr "> "
   line <- getLine
-  val <- return $ fmap (show . pretty) $ readExpr line >>= eval
+  val <- return . fmap (show . pretty) $ readExpr line >>= eval
   putStrLn . extractValue . trapError $ val
-  repl

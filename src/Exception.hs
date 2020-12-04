@@ -9,13 +9,13 @@ import           Text.Parsec          (ParseError)
 
 -- | PoggerError can be handled as exceptions.
 data PoggerError
-    = NumArgs Integer [PoggerVal]
-    | TypeMisMatch String PoggerVal
-    | ParserError ParseError
-    | BadSpecialForm String PoggerVal
-    | NotFunction String String
-    | UnboundVar String String
-    | Default String
+    = NumArgs !Integer ![PoggerVal]
+    | TypeMisMatch !String !PoggerVal
+    | ParserError !ParseError
+    | BadSpecialForm !String !PoggerVal
+    | NotFunction !String !String
+    | UnboundVar !String !String
+    | Default !String
     deriving stock (Eq)
 
 
