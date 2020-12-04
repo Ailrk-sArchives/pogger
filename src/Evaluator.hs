@@ -13,7 +13,6 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import qualified Data.HashMap.Strict  as H
 import           Env
-import           Exception
 
 
 type Pogger' = ReaderT Env IOThrowsError
@@ -53,13 +52,13 @@ eval (List [Atom "if", pred, seq, alt]) =
 eval (List [Atom "set!", Atom var, form]) = do
   value <- eval form
   env <- ask
-  Pogger . lift $ setVar env var value
+  toPogger' $ setVar env var value
 
 eval (List [Atom "define", Atom var, form]) = do
   value <- eval form
   env <- ask
-  Pogger . lift $ defineVar env var value
-
+  toPogger' $ defineVar env var value
+
 -- note, the order matter, otherwise keywords can be interpreted
 -- as functions.
 eval (List (Atom func : args))   =
@@ -70,7 +69,10 @@ eval other = throwError $ BadSpecialForm "Unrecognized form" other
 
 -- | apply a function to paramters.
 apply :: String -> [PoggerVal] -> Pogger PoggerVal
-apply func args = maybe (throwError $ NotFunction "Undefined: " func) ($ args) (H.lookup func primitives)
+apply func args = maybe
+  (throwError $ NotFunction "Undefined: " func)
+  ($ args)
+  (H.lookup func primitives)
 
 -- | environment
 primitives :: H.HashMap String ([PoggerVal] -> Pogger PoggerVal)
@@ -119,8 +121,7 @@ unpackNum (List [n]) = unpackNum n
 unpackNum (String n) =
   let parsed = reads n
    in if null parsed
-         then throwError
-         $ TypeMisMatch "number"  $ String n
+         then throwError $ TypeMisMatch "number"  $ String n
          else return $ fst $ parsed !! 0
 unpackNum other      = throwError $ TypeMisMatch "number" other
 {-# INLINE unpackNum #-}
@@ -156,8 +157,7 @@ partialNumericBinop _ []      = throwError $ NumArgs 2 []
 partialNumericBinop _ val@[_] = throwError $ NumArgs 2 val
 partialNumericBinop op params = do
   pvals <- toPogger $ traverse unpackNum params
-  a <- toPogger $ foldl1 (liftJoin2 op) (pure <$> pvals)
-  return . Number $ a
+  Number <$> (toPogger $ foldl1 (liftJoin2 op) (pure <$> pvals))
   where
     liftJoin2 f ma mb = join (liftM2 f ma mb)
 {-# INLINE partialNumericBinop #-}
@@ -240,7 +240,6 @@ equal :: [PoggerVal] -> Pogger PoggerVal
 equal = undefined
 {-# INLINE equal #-}
 
+-- TODO cannot find the variable name right now.
 print' :: [PoggerVal] -> Pogger PoggerVal
-print' [Atom var] = do
-  env <- ask
-  toPogger' $ getVar env var
+print' [Atom var] = ask >>= \env -> toPogger' $ getVar env var
