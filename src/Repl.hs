@@ -36,5 +36,4 @@ repl = do
   val <- return . fmap (show . pretty) $ readExpr line >>= eval
   v <- join $ runExceptT . runReaderT (unPogger val) <$> emptyEnv
   putStrLn . extractValue . trapError $ v
-  return ()
   repl
