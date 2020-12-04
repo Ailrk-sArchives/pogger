@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Env where
 
 import           Data.IORef
@@ -46,7 +48,21 @@ setVar ref var value = (liftIO $ readIORef ref) >>=
 setVar_ :: Env -> String -> PoggerVal -> IOThrowsError ()
 setVar_ ref var value = return () <* setVar ref var value
 
-
 -- | bring a new binding into the environment
 defineVar :: Env -> String -> PoggerVal -> IOThrowsError PoggerVal
-defineVar = undefined
+defineVar ref var value = do
+  hasDefined <- liftIO $ isBound ref var
+  if hasDefined
+     then setVar ref var value
+     else liftIO $ do
+       varRef <- newIORef value
+       env <- readIORef ref
+       writeIORef ref $ (var, varRef) : env
+       return value
+
+-- | bind multiple values at once
+bindVars :: Env -> [(String, PoggerVal)] -> IO Env
+bindVars ref bindings = readIORef ref >>= extend bindings >>= newIORef
+  where
+    extend bindings env = fmap (++ env) (traverse addBinding bindings)
+    addBinding (var, value) = newIORef value >>= return . (var,)

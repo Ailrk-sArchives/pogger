@@ -7,6 +7,8 @@ module Repl where
 
 import           AST
 import           Control.Monad.Except
+import           Control.Monad.Reader
+import           Env
 import           Evaluator
 import           Exception
 import           Parser.Sexp
@@ -18,7 +20,6 @@ readExpr :: (MonadError PoggerError m) => String -> m PoggerVal
 readExpr input = case parse poggerExpr "poggerScheme" input of
   Left  err -> throwError $ ParserError err
   Right val -> return val
-
 
 until' :: Monad m => (a -> Bool) -> m a -> (a -> m ()) -> m ()
 until' pred prompt action = do
@@ -33,4 +34,7 @@ repl = do
   putStr "> "
   line <- getLine
   val <- return . fmap (show . pretty) $ readExpr line >>= eval
-  putStrLn . extractValue . trapError $ val
+  v <- join $ runExceptT . runReaderT (unPogger val) <$> emptyEnv
+  putStrLn . extractValue . trapError $ v
+  return ()
+  repl
