@@ -9,13 +9,10 @@ import           Control.Monad.Except
 import           Exception
 
 
-type Env = IORef [(String, IORef PoggerVal)]
-
 
 emptyEnv :: IO Env
 emptyEnv = newIORef []
 
-type IOThrowsError = ExceptT PoggerError IO
 
 -- | lift helper
 liftThrows :: ThrowsError a -> IOThrowsError a

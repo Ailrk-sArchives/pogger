@@ -1,16 +1,17 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GADTs              #-}
 
-{-
-  AST for scheme ir. The indentation based layer will be first
-  preprocessed to s-expression and be compiled to this ast.
--}
+-- Definition of all top level data types.
+
 module AST where
 
+import           Control.Monad.Except
 import           Data.Complex
+import           Data.IORef
 import           Data.List
 import           Data.Ratio
 import           Prettyprinter
+import           Text.Parsec          (ParseError)
 
 --data PoggerVal                deriving (Eq)
 
@@ -22,8 +23,16 @@ data PoggerVal where
   Bool :: Bool -> PoggerVal
   Char :: Char -> PoggerVal
   Number :: PoggerNum -> PoggerVal
-  deriving stock (Eq, Read, Ord)
+  Fn1 :: [PoggerVal] -> ThrowsError PoggerVal -> PoggerVal
+  Fn :: PoggerFunc -> PoggerVal
+  deriving stock Eq
 
+data PoggerFunc = PoggerFunc { params  :: [PoggerVal]
+                             , vararg  :: (Maybe String)
+                             , body    :: [PoggerVal]
+                             , closure :: Env
+                             }
+                             deriving stock Eq
 
 -- R5S5 allows number to be coerced, but in haskell
 -- a numberic type can only be applied with itself.
@@ -62,9 +71,31 @@ instance Pretty PoggerVal where
   pretty (Bool b       )          = if b then pretty "#t" else pretty "#f"
   pretty (Char c       )          = pretty $ "\\#" ++ [c]
   pretty (String s)               = pretty s
+  pretty (Fn1 _ _)                = pretty "<lambda>"
+  pretty (Fn _)                   = pretty "<lambda>"
+
 
 instance Show PoggerVal where
   show = show . pretty
+
+
+-- | PoggerError can be handled as exceptions.
+data PoggerError
+    = NumArgs !Integer ![PoggerVal]
+    | TypeMisMatch !String !PoggerVal
+    | ParserError !ParseError
+    | BadSpecialForm !String !PoggerVal
+    | NotFunction !String !String
+    | UnboundVar !String !String
+    | Default !String
+    deriving stock (Eq)
+
+type ThrowsError = Either PoggerError
+
+-- | Environment.
+type Env = IORef [(String, IORef PoggerVal)]
+type IOThrowsError = ExceptT PoggerError IO
+
 
 -- pogger number --
 -- implements the conversion between different number types.

@@ -31,6 +31,9 @@ deriving instance Monad Pogger
 toPogger :: ThrowsError a -> Pogger a
 toPogger  = Pogger . lift . liftThrows
 
+toPogger' :: IOThrowsError a -> Pogger a
+toPogger' = Pogger . lift
+
 
 -- the core evaluator function
 eval :: PoggerVal -> Pogger PoggerVal
@@ -102,6 +105,8 @@ primitives = H.fromList
   , ("car", car)
 
   , ("eq?", eqv)
+
+  , ("print", print')
   ]
 
 
@@ -234,3 +239,8 @@ eqv other = throwError $ NumArgs 2 other
 equal :: [PoggerVal] -> Pogger PoggerVal
 equal = undefined
 {-# INLINE equal #-}
+
+print' :: [PoggerVal] -> Pogger PoggerVal
+print' [Atom var] = do
+  env <- ask
+  toPogger' $ getVar env var
