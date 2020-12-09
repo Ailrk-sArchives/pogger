@@ -13,12 +13,6 @@ import           Exception
 emptyEnv :: IO Env
 emptyEnv = newIORef []
 
-
--- | lift helper
-liftThrows :: ThrowsError a -> IOThrowsError a
-liftThrows (Left e)  = throwError e
-liftThrows (Right a) = return a
-
 -- | run the Exxception and trap errors.
 runIOThrows :: IOThrowsError String -> IO String
 runIOThrows action = runExceptT (trapError action) >>= return . extractValue

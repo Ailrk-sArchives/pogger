@@ -1,10 +1,10 @@
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE ExistentialQuantification  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE DerivingStrategies        #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE RecordWildCards           #-}
+
 module Evaluator where
 
 import           AST
@@ -13,25 +13,6 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import qualified Data.HashMap.Strict  as H
 import           Env
-
-
-type Pogger' = ReaderT Env IOThrowsError
-
-newtype Pogger a = Pogger { unPogger :: Pogger' a }
-  deriving newtype
-    ( Functor
-    , Applicative
-    , MonadReader Env
-    , MonadError PoggerError
-    )
-
-deriving instance Monad Pogger
-
-toPogger :: ThrowsError a -> Pogger a
-toPogger  = Pogger . lift . liftThrows
-
-toPogger' :: IOThrowsError a -> Pogger a
-toPogger' = Pogger . lift
 
 
 -- the core evaluator function
@@ -61,18 +42,22 @@ eval (List [Atom "define", Atom var, form]) = do
 
 -- note, the order matter, otherwise keywords can be interpreted
 -- as functions.
-eval (List (Atom func : args))   =
-  traverse eval args >>= apply func
+-- eval (List (Atom func : args))   =
+--   traverse eval args >>= apply func
 
 eval other = throwError $ BadSpecialForm "Unrecognized form" other
 {-# INLINE eval #-}
 
 -- | apply a function to paramters.
-apply :: String -> [PoggerVal] -> Pogger PoggerVal
-apply func args = maybe
-  (throwError $ NotFunction "Undefined: " func)
-  ($ args)
-  (H.lookup func primitives)
+apply :: PoggerVal -> [PoggerVal] -> Pogger PoggerVal
+apply (FnPrimtive fn) args = toPogger $ (unPrimitiveFn fn) args
+apply (Fn (PoggerFunc{..})) args
+  | length params /= length args && varargs == Nothing =
+      throwError $ NumArgs (toInteger . length $ params) args
+  | otherwise = (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
+  where
+    evalBody env = undefined
+    bindVarArgs arg env = maybe (return env) _ arg
 
 -- | environment
 primitives :: H.HashMap String ([PoggerVal] -> Pogger PoggerVal)
