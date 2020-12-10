@@ -26,6 +26,8 @@ instance Show PoggerError where
 trapError :: (MonadError PoggerError m)
           => m String -> m String
 trapError action = catchError action (return . show)
+{-# SPECIALIZE trapError :: ThrowsError String -> ThrowsError String #-}
+{-# SPECIALIZE trapError :: IOThrowsError String -> IOThrowsError String #-}
 
 -- extract value from Right.
 extractValue :: ThrowsError a -> a

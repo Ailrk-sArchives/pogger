@@ -1,11 +1,15 @@
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GADTs              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 
 -- Definition of all top level data types.
 
 module AST where
 
 import           Control.Monad.Except
+import           Control.Monad.Reader
 import           Data.Complex
 import           Data.IORef
 import           Data.List
@@ -23,16 +27,25 @@ data PoggerVal where
   Bool :: Bool -> PoggerVal
   Char :: Char -> PoggerVal
   Number :: PoggerNum -> PoggerVal
-  Fn1 :: [PoggerVal] -> ThrowsError PoggerVal -> PoggerVal
+  FnPrimtive ::  PoggerPrimitiveFn -> PoggerVal
   Fn :: PoggerFunc -> PoggerVal
   deriving stock Eq
 
-data PoggerFunc = PoggerFunc { params  :: [PoggerVal]
-                             , vararg  :: (Maybe String)
-                             , body    :: [PoggerVal]
-                             , closure :: Env
-                             }
-                             deriving stock Eq
+-- | wrapper of primitive functions.
+-- We need this to derive Eq for PoggerVal
+newtype PoggerPrimitiveFn = PoggerPrimitiveFn
+  { unPrimitiveFn :: ([PoggerVal] -> ThrowsError PoggerVal) }
+
+instance Eq PoggerPrimitiveFn where
+  _ == _ = False
+
+data PoggerFunc =
+  PoggerFunc { params  :: [String]     -- function parameters
+             , varargs :: (Maybe String)  -- varadic funtion
+             , body    :: [PoggerVal]     -- function body expression
+             , closure :: Env             -- closure
+             }
+             deriving Eq
 
 -- R5S5 allows number to be coerced, but in haskell
 -- a numberic type can only be applied with itself.
@@ -71,15 +84,20 @@ instance Pretty PoggerVal where
   pretty (Bool b       )          = if b then pretty "#t" else pretty "#f"
   pretty (Char c       )          = pretty $ "\\#" ++ [c]
   pretty (String s)               = pretty s
-  pretty (Fn1 _ _)                = pretty "<lambda>"
-  pretty (Fn _)                   = pretty "<lambda>"
+  pretty (FnPrimtive _)         = pretty "<primitives>"
+  pretty (Fn (PoggerFunc {..}))   = pretty $ "(lambda ("
+                                          ++ unwords (show <$> params)
+                                          ++ (case varargs of
+                                                Nothing  -> ""
+                                                Just arg -> " . " ++ arg)
+                                          ++ ") ...)"
 
 
 instance Show PoggerVal where
   show = show . pretty
 
 
--- | PoggerError can be handled as exceptions.
+-- PoggerError can be handled as exceptions --
 data PoggerError
     = NumArgs !Integer ![PoggerVal]
     | TypeMisMatch !String !PoggerVal
@@ -88,13 +106,38 @@ data PoggerError
     | NotFunction !String !String
     | UnboundVar !String !String
     | Default !String
-    deriving stock (Eq)
 
 type ThrowsError = Either PoggerError
 
 -- | Environment.
 type Env = IORef [(String, IORef PoggerVal)]
 type IOThrowsError = ExceptT PoggerError IO
+
+
+-- The main monad transformer stack --
+type Pogger' = ReaderT Env IOThrowsError
+
+newtype Pogger a = Pogger { unPogger :: Pogger' a }
+  deriving newtype
+    ( Functor
+    , Applicative
+    , MonadReader Env
+    , MonadError PoggerError
+    , MonadIO
+    )
+
+deriving instance Monad Pogger
+
+-- | lift helper
+liftThrows :: ThrowsError a -> IOThrowsError a
+liftThrows (Left e)  = throwError e
+liftThrows (Right a) = return a
+
+toPogger :: ThrowsError a -> Pogger a
+toPogger  = Pogger . lift . liftThrows
+
+toPogger' :: IOThrowsError a -> Pogger a
+toPogger' = Pogger . lift
 
 
 -- pogger number --
