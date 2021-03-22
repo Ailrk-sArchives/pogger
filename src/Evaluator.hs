@@ -60,7 +60,9 @@ apply (Fn PoggerFunc{..}) args
     evalBody = undefined
     bindVarArgs arg env = maybe (return env) _ arg
 
--- | environment
+-- --------------------------------------------------------------------------
+-- environment
+
 primitives :: H.HashMap String ([PoggerVal] -> Pogger PoggerVal)
 primitives = H.fromList
   [ ("+", numericBinop (+))
@@ -126,7 +128,7 @@ unpackBool other    = throwError $ TypeMisMatch "boolean" other
 {-# INLINE unpackBool #-}
 
 
--- | fold a binary operator over parameters
+-- fold a binary operator over parameters
 numericBinop :: (PoggerNum -> PoggerNum -> PoggerNum)
              -> [PoggerVal]
              -> Pogger PoggerVal
@@ -135,7 +137,7 @@ numericBinop _ val@[_] = throwError $ NumArgs 2 val
 numericBinop op params = toPogger $ traverse unpackNum params >>= return . Number . foldl1 op
 {-# INLINE numericBinop #-}
 
--- | numericBinop but the operator but can throws an error.
+-- numericBinop but the operator but can throws an error.
 partialNumericBinop :: (PoggerNum -> PoggerNum -> ThrowsError PoggerNum)
                     -> [PoggerVal]
                     -> Pogger PoggerVal
@@ -148,7 +150,7 @@ partialNumericBinop op params = do
     liftJoin2 f ma mb = join (liftM2 f ma mb)
 {-# INLINE partialNumericBinop #-}
 
--- | boolean op factory.
+-- boolean op factory.
 -- The purpose of boolean binary operation is to
 -- check if two paramters satisfy certain predicates.
 mkBoolBinop :: Unpacker a
@@ -184,7 +186,8 @@ poggerQuotient = mkPoggerPartialIntBinop quot
 poggerRemainder = mkPoggerPartialIntBinop rem
 {-# INLINE poggerRemainder #-}
 
--- | list operations.
+-- --------------------------------------------------------------------------
+-- list operations.
 
 cons :: [PoggerVal] -> Pogger PoggerVal
 cons [a, List []] = return $ List [a]
