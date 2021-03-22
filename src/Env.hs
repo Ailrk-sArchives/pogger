@@ -23,21 +23,21 @@ isBound ref var = readIORef ref >>= return . maybe False (const True) . lookup v
 
 -- | get variable from environent.
 getVar :: Env -> String -> IOThrowsError PoggerVal
-getVar ref var = (liftIO $ readIORef ref) >>=
+getVar ref var = liftIO (readIORef ref) >>=
   maybe (throwError $ UnboundVar "Unbounded variable" var)
         (liftIO . readIORef)
         . lookup var
 
 -- | set a variable to some value.
 setVar :: Env -> String -> PoggerVal -> IOThrowsError PoggerVal
-setVar ref var value = (liftIO $ readIORef ref) >>=
+setVar ref var value = liftIO (readIORef ref) >>=
    maybe (throwError $ UnboundVar "Unbounded variable" var)
-         (liftIO . (flip writeIORef value))
+         (liftIO . (`writeIORef` value))
          . lookup var >> return value
 
 -- | set var without return the value.
 setVar_ :: Env -> String -> PoggerVal -> IOThrowsError ()
-setVar_ ref var value = return () <* setVar ref var value
+setVar_ ref var value = () <$ setVar ref var value
 
 -- | bring a new binding into the environment
 defineVar :: Env -> String -> PoggerVal -> IOThrowsError PoggerVal

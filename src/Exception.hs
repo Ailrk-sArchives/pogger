@@ -18,7 +18,6 @@ showPoggerError (NotFunction    msg func      ) = msg ++ ": " ++ show func
 showPoggerError (UnboundVar     msg identifier) = msg ++ ": " ++ identifier
 showPoggerError (Default str                  ) = str
 
-
 instance Show PoggerError where
   show = showPoggerError
 
