@@ -11,12 +11,12 @@ module Parser.Sexp where
 
 
 import           AST
-import           Data.Char            (digitToInt)
-import qualified Data.Map             as M
+import           Data.Char          (digitToInt)
+import qualified Data.Map           as M
 import           Data.Maybe
 import           Numeric
 import           Text.Parsec
-import           Text.Parsec.String   (Parser)
+import           Text.Parsec.String (Parser)
 
 -- | Non alpha numeric characters
 poggerSymbol :: Parser Char
@@ -125,10 +125,10 @@ prefixedFormatToFloat pstr rs num = try double <|> try int
     integral <- num
     dot
     fractional <- num
-    let combined = (integral <> fractional)
+    let combined = integral <> fractional
     let d        = base ^ length fractional
     let r        = getPart rs s combined
-    return $ (r / d)
+    return (r / d)
 
 prefixedFormatToInteger
   :: String -> ReadS Integer -> Parser String -> Parser Integer
@@ -143,7 +143,7 @@ getPart rs sign | sign == "-" = negate . pick
   where pick = fst . head . rs
 
 sign :: Parser String
-sign = (string "+" >> return "") <|> string "-" <|> pure ""
+sign = (string "+" >> pure "") <|> string "-" <|> pure ""
 
 dot :: Parser String
 dot = string "."
@@ -158,7 +158,7 @@ poggerChar = do
   char '\\' >> char '#'
   n <- do
     let ss = string <$> M.keys charNames
-    try (lkCharNames <$> (choice ss)) <|> anyChar
+    try (lkCharNames <$> choice ss) <|> anyChar
   many1 space
   return . Char $ n
  where

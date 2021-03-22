@@ -12,6 +12,7 @@ import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import qualified Data.HashMap.Strict  as H
+import           Data.Maybe           (isNothing)
 import           Env
 
 
@@ -50,13 +51,13 @@ eval other = throwError $ BadSpecialForm "Unrecognized form" other
 
 -- | apply a function to paramters.
 apply :: PoggerVal -> [PoggerVal] -> Pogger PoggerVal
-apply (FnPrimtive fn) args = toPogger $ (unPrimitiveFn fn) args
-apply (Fn (PoggerFunc{..})) args
-  | length params /= length args && varargs == Nothing =
+apply (FnPrimtive fn) args = toPogger $ unPrimitiveFn fn args
+apply (Fn PoggerFunc{..}) args
+  | length params /= length args && isNothing Nothing =
       throwError $ NumArgs (toInteger . length $ params) args
-  | otherwise = (liftIO $ bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
+  | otherwise = liftIO (bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
   where
-    evalBody env = undefined
+    evalBody = undefined
     bindVarArgs arg env = maybe (return env) _ arg
 
 -- | environment
@@ -107,7 +108,7 @@ unpackNum (String n) =
   let parsed = reads n
    in if null parsed
          then throwError $ TypeMisMatch "number"  $ String n
-         else return $ fst $ parsed !! 0
+         else return $ fst $ head parsed
 unpackNum other      = throwError $ TypeMisMatch "number" other
 {-# INLINE unpackNum #-}
 
@@ -142,7 +143,7 @@ partialNumericBinop _ []      = throwError $ NumArgs 2 []
 partialNumericBinop _ val@[_] = throwError $ NumArgs 2 val
 partialNumericBinop op params = do
   pvals <- toPogger $ traverse unpackNum params
-  Number <$> (toPogger $ foldl1 (liftJoin2 op) (pure <$> pvals))
+  Number <$> toPogger (foldl1 (liftJoin2 op) (pure <$> pvals))
   where
     liftJoin2 f ma mb = join (liftM2 f ma mb)
 {-# INLINE partialNumericBinop #-}
@@ -159,7 +160,7 @@ mkBoolBinop unpacker op args =
      then throwError $ NumArgs 2 args
      else do
        vals <- toPogger . sequence $ unpacker <$> args
-       return . Bool $ (vals !! 0) `op` (vals !! 1)
+       return . Bool $ head vals `op` (vals !! 1)
 
 numBoolBinop = mkBoolBinop unpackNum
 strBoolBinop = mkBoolBinop unpackString
@@ -201,7 +202,7 @@ car others               = throwError $ NumArgs 1 others
 
 cdr :: [PoggerVal] -> Pogger PoggerVal
 cdr [List (_:xs)]         = return $ List xs
-cdr [DottedList [_] x]    = return $ x
+cdr [DottedList [_] x]    = return x
 cdr [DottedList (_:xs) x] = return $ DottedList xs x
 cdr [others]              = throwError $ TypeMisMatch "pair" others
 cdr others                = throwError $ NumArgs 1 others
@@ -209,13 +210,13 @@ cdr others                = throwError $ NumArgs 1 others
 
 -- | strong equality
 eqv :: [PoggerVal] -> Pogger PoggerVal
-eqv [(Bool a), (Bool b)]     =  return . Bool $ a == b
-eqv [(Number a), (Number b)] =  return . Bool $ a == b
-eqv [(String a), (String b)] =  return . Bool $ a == b
-eqv [(Atom a), (Atom b)]     =  return . Bool $ a == b
-eqv [(DottedList xs x), (DottedList ys y)]     =
+eqv [Bool a, Bool b]     =  return . Bool $ a == b
+eqv [Number a, Number b] =  return . Bool $ a == b
+eqv [String a, String b] =  return . Bool $ a == b
+eqv [Atom a, Atom b]     =  return . Bool $ a == b
+eqv [DottedList xs x, DottedList ys y]     =
   eqv [List $ xs ++ [x], List $ ys ++ [y]]
-eqv [(List xs), (List ys)]     =  return . Bool $ xs == ys
+eqv [List xs, List ys]     =  return . Bool $ xs == ys
 eqv [_, _] = return . Bool $ False
 eqv other = throwError $ NumArgs 2 other
 {-# INLINE eqv #-}

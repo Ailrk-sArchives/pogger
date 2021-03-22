@@ -34,6 +34,6 @@ repl = do
   putStr "> "
   line <- getLine
   val <- return . fmap (show . pretty) $ readExpr line >>= eval
-  v <- join $ runExceptT . runReaderT (unPogger val) <$> emptyEnv
+  v <- (runExceptT . runReaderT (unPogger val)) =<< emptyEnv
   putStrLn . extractValue . trapError $ v
   repl

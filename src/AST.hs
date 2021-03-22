@@ -3,6 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 
 -- Definition of all top level data types.
 
@@ -34,14 +35,14 @@ data PoggerVal where
 -- | wrapper of primitive functions.
 -- We need this to derive Eq for PoggerVal
 newtype PoggerPrimitiveFn = PoggerPrimitiveFn
-  { unPrimitiveFn :: ([PoggerVal] -> ThrowsError PoggerVal) }
+  { unPrimitiveFn :: [PoggerVal] -> ThrowsError PoggerVal }
 
 instance Eq PoggerPrimitiveFn where
   _ == _ = False
 
 data PoggerFunc =
   PoggerFunc { params  :: [String]     -- function parameters
-             , varargs :: (Maybe String)  -- varadic funtion
+             , varargs :: Maybe String  -- varadic funtion
              , body    :: [PoggerVal]     -- function body expression
              , closure :: Env             -- closure
              }
@@ -61,7 +62,7 @@ data PoggerNum where
 instance Pretty PoggerVal where
   pretty (Atom    str  )          = pretty str
   pretty (List    xs   )          = mconcat $
-    [pretty "'("] <> (intersperse (pretty " ") $ pretty <$> xs)
+    [pretty "'("] <> intersperse (pretty " ") (pretty <$> xs)
                   <> [pretty ")"]
   pretty (DottedList [x] y) = pretty "'("
                             <> pretty x
@@ -85,7 +86,7 @@ instance Pretty PoggerVal where
   pretty (Char c       )          = pretty $ "\\#" ++ [c]
   pretty (String s)               = pretty s
   pretty (FnPrimtive _)         = pretty "<primitives>"
-  pretty (Fn (PoggerFunc {..}))   = pretty $ "(lambda ("
+  pretty (Fn PoggerFunc {..})   = pretty $ "(lambda ("
                                           ++ unwords (show <$> params)
                                           ++ (case varargs of
                                                 Nothing  -> ""
@@ -151,16 +152,16 @@ instance Num PoggerNum where
      in Complex (realPart r) (imagPart r)
 
   (Complex a b) + (Rational d de) =
-    (Complex (a + (fromIntegral d / fromIntegral de)) b)
+    Complex (a + (fromIntegral d / fromIntegral de)) b
 
   (Rational d de) + (Complex a b) =
-    (Complex (a + (fromIntegral d / fromIntegral de)) b)
+    Complex (a + (fromIntegral d / fromIntegral de)) b
 
-  (Complex a b) + (Integer n) = (Complex (a + fromInteger n) b)
-  (Integer n) + (Complex a b)  = (Complex (a + fromInteger n) b)
+  (Complex a b) + (Integer n) = Complex (a + fromInteger n) b
+  (Integer n) + (Complex a b)  = Complex (a + fromInteger n) b
 
-  (Complex a b) + (Real n) = (Complex (a + n) b)
-  (Real n) + (Complex a b)  = (Complex (a + n) b)
+  (Complex a b) + (Real n) = Complex (a + n) b
+  (Real n) + (Complex a b)  = Complex (a + n) b
 
   (Rational a b) + (Rational c d) = simplifyR $ Rational (a + c) (b + d)
 
@@ -232,7 +233,7 @@ instance Num PoggerNum where
   signum (Real n) = Real (signum n)
 
   signum (Rational a b) | (a > 0 && b > 0) || (a < 0 && b < 0) = Rational 1 b
-    | (a == 0) = Rational 0 b
+    | a == 0 = Rational 0 b
     | otherwise = Rational (-1) b
 
   signum (Complex a b) = Complex (signum a) (signum b)
@@ -263,16 +264,16 @@ instance Fractional PoggerNum where
     let v1 = (n :+ 0)
         v2 = (a :+ b)
         v3 = v1 / v2
-     in (Complex (realPart v3) (imagPart v3))
+     in Complex (realPart v3) (imagPart v3)
 
   (Complex a b) / (Integer n) = Complex (a / fromIntegral n) b
   (Integer n) / (Complex a b)  =
     let v1 = (fromIntegral n :+ 0)
         v2 = (a :+ b)
         v3 = v1 / v2
-     in (Complex (realPart v3) (imagPart v3))
+     in Complex (realPart v3) (imagPart v3)
 
-  (Complex a b) / (Rational c d) = (Complex (a / (fromIntegral c / fromIntegral d)) b)
+  (Complex a b) / (Rational c d) = Complex (a / (fromIntegral c / fromIntegral d)) b
 
   (Rational c d) / complex =
     let v1 = Real (fromIntegral c / fromIntegral d)
