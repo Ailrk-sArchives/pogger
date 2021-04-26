@@ -19,11 +19,11 @@ extra-source-files:  CHANGELOG.md
 library
   other-modules: Paths_pogger
   exposed-modules:
-      Parser.Surface
-    , Parser.Sexp
+      Parser.Sexp
     , Evaluator
     , Exception
     , Env
+    , Num
     , AST
     , Repl
   -- other-extensions:
