@@ -15,7 +15,7 @@ import           Parser.Sexp
 import           Prettyprinter
 import           Text.Parsec
 
--- | Parser string to pogger values.
+-- Parser string to pogger values.
 readExpr :: (MonadError PoggerError m) => String -> m PoggerVal
 readExpr input = case parse poggerExpr "poggerScheme" input of
   Left  err -> throwError $ ParserError err
@@ -28,7 +28,7 @@ until' pred prompt action = do
      then return ()
      else action val >> until' pred prompt action
 
--- | repl entrance.
+-- repl entrance.
 repl :: IO ()
 repl = do
   putStr "> "
