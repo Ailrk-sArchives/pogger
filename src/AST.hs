@@ -1,22 +1,21 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -Wincomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 
 -- Definition of all top level data types.
-
 module AST where
 
 import Control.Monad.Except
 import Control.Monad.Reader
-import Data.Coerce
-import qualified Data.Complex as C
 import Data.IORef
 import Data.List
-import Data.Ratio
 import Prettyprinter
 import Text.Parsec (ParseError)
 
@@ -30,25 +29,21 @@ data PoggerVal where
   Bool :: Bool -> PoggerVal
   Char :: Char -> PoggerVal
   Number :: PoggerNum -> PoggerVal
-  FnPrimtive :: PoggerPrimitiveFn -> PoggerVal
   Fn :: PoggerFunc -> PoggerVal
   deriving stock (Eq)
 
--- | wrapper of primitive functions.
--- We need this to derive Eq for PoggerVal
-newtype PoggerPrimitiveFn = PoggerPrimitiveFn
-  {unPrimitiveFn :: [PoggerVal] -> ThrowsError PoggerVal}
+data PoggerFunc
+  = PoggerFunc
+      { params :: [String], -- function parameters
+        varargs :: Maybe String, -- varadic funtion
+        body :: [PoggerVal], -- function body expression
+        closure :: Env -- closure
+      }
+  | PoggerPrimitiveFn -- wrapper for builtin functions.
+      {unPrimitiveFn :: [PoggerVal] -> ThrowsError PoggerVal}
 
-instance Eq PoggerPrimitiveFn where
+instance Eq PoggerFunc where
   _ == _ = False
-
-data PoggerFunc = PoggerFunc
-  { params :: [String], -- function parameters
-    varargs :: Maybe String, -- varadic funtion
-    body :: [PoggerVal], -- function body expression
-    closure :: Env -- closure
-  }
-  deriving (Eq)
 
 -- R5S5 allows number to be coerced, but in haskell
 -- a numberic type can only be applied with itself.
@@ -75,9 +70,9 @@ instance Pretty PoggerVal where
       <> pretty ")"
   pretty (DottedList xs y) = mconcat $ l (pretty <$> xs)
     where
-      l xs =
+      l as =
         [pretty "'("]
-          <> xs
+          <> as
           <> [pretty " . ", pretty y, pretty ")"]
   pretty (Number (Integer int)) = pretty int
   pretty (Number (Real float)) = pretty float
@@ -91,7 +86,7 @@ instance Pretty PoggerVal where
   pretty (Bool b) = if b then pretty "#t" else pretty "#f"
   pretty (Char c) = pretty $ "\\#" ++ [c]
   pretty (String s) = pretty s
-  pretty (FnPrimtive _) = pretty "<primitives>"
+  pretty (Fn PoggerPrimitiveFn {..}) = pretty "<primitives>"
   pretty (Fn PoggerFunc {..}) =
     pretty $
       "(lambda ("
@@ -136,13 +131,40 @@ newtype Pogger a = Pogger {unPogger :: Pogger' a}
 
 deriving instance Monad Pogger
 
+-- | unpack a value and make it throwable.
+class Throwable (a :: *) where
+  unpack :: PoggerVal -> ThrowsError a
+
+instance Throwable PoggerNum where
+  unpack (Number n) = return n
+  unpack (List [n]) = unpack n
+  unpack (String n) =
+    let parsed = reads n
+     in if null parsed
+          then throwError $ TypeMisMatch "number" $ String n
+          else return $ fst $ head parsed
+  unpack other = throwError $ TypeMisMatch "number" other
+  {-# INLINE unpack #-}
+
+instance Throwable String where
+  unpack (String s) = return s
+  unpack (Number n) = return . show $ n
+  unpack (Bool s) = return . show $ s
+  unpack other = throwError (TypeMisMatch "string" other)
+  {-# INLINE unpack #-}
+
+instance Throwable Bool where
+  unpack (Bool b) = return b
+  unpack other = throwError (TypeMisMatch "boolean" other)
+  {-# INLINE unpack #-}
+
 -- | lift helper
 liftThrows :: ThrowsError a -> IOThrowsError a
 liftThrows (Left e) = throwError e
 liftThrows (Right a) = return a
 
-toPogger :: ThrowsError a -> Pogger a
-toPogger = Pogger . lift . liftThrows
+toPoggerE :: ThrowsError a -> Pogger a
+toPoggerE = Pogger . lift . liftThrows
 
-toPogger' :: IOThrowsError a -> Pogger a
-toPogger' = Pogger . lift
+toPogger_ :: IOThrowsError a -> Pogger a
+toPogger_ = Pogger . lift

@@ -2,13 +2,10 @@
 
 module Env where
 
-import           Data.IORef
-
-import           AST
-import           Control.Monad.Except
-import           Exception
-
-
+import AST
+import Control.Monad.Except
+import Data.IORef
+import Exception
 
 emptyEnv :: IO Env
 emptyEnv = newIORef []
@@ -23,17 +20,22 @@ isBound ref var = readIORef ref >>= return . maybe False (const True) . lookup v
 
 -- | get variable from environent.
 getVar :: Env -> String -> IOThrowsError PoggerVal
-getVar ref var = liftIO (readIORef ref) >>=
-  maybe (throwError $ UnboundVar "Unbounded variable" var)
-        (liftIO . readIORef)
-        . lookup var
+getVar ref var =
+  liftIO (readIORef ref)
+    >>= maybe
+      (throwError $ UnboundVar "Unbounded variable" var)
+      (liftIO . readIORef)
+      . lookup var
 
 -- | set a variable to some value.
 setVar :: Env -> String -> PoggerVal -> IOThrowsError PoggerVal
-setVar ref var value = liftIO (readIORef ref) >>=
-   maybe (throwError $ UnboundVar "Unbounded variable" var)
-         (liftIO . (`writeIORef` value))
-         . lookup var >> return value
+setVar ref var value =
+  liftIO (readIORef ref)
+    >>= maybe
+      (throwError $ UnboundVar "Unbounded variable" var)
+      (liftIO . (`writeIORef` value))
+      . lookup var
+      >> return value
 
 -- | set var without return the value.
 setVar_ :: Env -> String -> PoggerVal -> IOThrowsError ()
@@ -44,12 +46,12 @@ defineVar :: Env -> String -> PoggerVal -> IOThrowsError PoggerVal
 defineVar ref var value = do
   hasDefined <- liftIO $ isBound ref var
   if hasDefined
-     then setVar ref var value
-     else liftIO $ do
-       varRef <- newIORef value
-       env <- readIORef ref
-       writeIORef ref $ (var, varRef) : env
-       return value
+    then setVar ref var value
+    else liftIO $ do
+      varRef <- newIORef value
+      env <- readIORef ref
+      writeIORef ref $ (var, varRef) : env
+      return value
 
 -- | bind multiple values at once
 bindVars :: Env -> [(String, PoggerVal)] -> IO Env
