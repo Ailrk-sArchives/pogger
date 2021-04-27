@@ -69,60 +69,58 @@ apply (PoggerFunc {..}) args
 
 primitives :: H.HashMap String ([PoggerVal] -> Pogger PoggerVal)
 primitives =
-  H.fromList
-    [ -- ("+", numericBinop (+)),
-      -- ("-", toPoggerPrim (BinOp (-))),
-      -- ("*", numericBinop (*)),
-      -- ("/", numericBinop (/)),
-      -- ("mod", partialNumericBinop poggerMod),
-      -- ("quotient", partialNumericBinop poggerQuotient),
-      -- ("remainder", partialNumericBinop poggerRemainder),
-      -- ("=", numBoolBinop (==)),
-      -- ("<", numBoolBinop (<)),
-      -- (">", numBoolBinop (>)),
-      -- ("<=", numBoolBinop (<=)),
-      -- (">=", numBoolBinop (>=)),
-      -- ("/=", numBoolBinop (/=)),
-      -- ("and", boolBoolBinop (&&)),
-      -- ("or", boolBoolBinop (||)),
-      -- ("string=?", strBoolBinop (==)),
-      -- ("string<?", strBoolBinop (<)),
-      -- ("string>?", strBoolBinop (>)),
-      -- ("string<=?", strBoolBinop (<=)),
-      -- ("string>=?", strBoolBinop (>=)),
-      ("cons", cons),
-      ("cdr", cdr),
-      ("car", car),
-      ("eq?", eqv),
-      ("print", print')
+  (H.fromList . mconcat)
+    [ to
+        ( [ ("+", BinOp (+)),
+            ("-", BinOp (-)),
+            ("*", BinOp (*)),
+            ("/", BinOp (/))
+          ] ::
+            [(String, Operator PoggerNum PoggerNum)]
+        ),
+      to
+        ( [ ("=", BinOp (==)),
+            ("/=", BinOp (/=)),
+            (">", BinOp (>)),
+            ("<", BinOp (<)),
+            (">=", BinOp (>=)),
+            ("<=", BinOp (<=))
+          ] ::
+            [(String, Operator PoggerNum Bool)]
+        ),
+      to
+        ( [ ("string=?", BinOp (==)),
+            ("string>?", BinOp (>)),
+            ("string<?", BinOp (<)),
+            ("string>=?", BinOp (>=)),
+            ("string<=?", BinOp (<=))
+          ] ::
+            [(String, Operator String Bool)]
+        ),
+      to
+        ( [ ("and", BinOp (&&)),
+            ("or", BinOp (||))
+          ] ::
+            [(String, Operator Bool Bool)]
+        ),
+      to
+        [ ("cons", cons),
+          ("cdr", cdr),
+          ("car", car),
+          ("eq?", eqv),
+          ("print", print')
+        ]
     ]
+  where
+    to xs = [(a, toPoggerPrim b) | (a, b) <- xs]
 
--- | unpack a value and make it throwable.
-class Throwable (a :: *) where
-  unpack :: PoggerVal -> ThrowsError a
-
-instance Throwable PoggerNum where
-  unpack (Number n) = return n
-  unpack (List [n]) = unpack n
-  unpack (String n) =
-    let parsed = reads n
-     in if null parsed
-          then throwError $ TypeMisMatch "number" $ String n
-          else return $ fst $ head parsed
-  unpack other = throwError $ TypeMisMatch "number" other
-  {-# INLINE unpack #-}
-
-instance Throwable String where
-  unpack (String s) = return s
-  unpack (Number n) = return . show $ n
-  unpack (Bool s) = return . show $ s
-  unpack other = throwError (TypeMisMatch "string" other)
-  {-# INLINE unpack #-}
-
-instance Throwable Bool where
-  unpack (Bool b) = return b
-  unpack other = throwError (TypeMisMatch "boolean" other)
-  {-# INLINE unpack #-}
+-- [
+--   -- ("mod", partialNumericBinop poggerMod),
+--   -- ("quotient", partialNumericBinop poggerQuotient),
+--   -- ("remainder", partialNumericBinop poggerRemainder),
+--   -- ("and", boolBoolBinop (&&)),
+--   -- ("or", boolBoolBinop (||)),
+-- ]
 
 -- --------------------------------------------------------------------------
 -- pogger primitive
@@ -136,6 +134,11 @@ data Operator a ret where
 class ToPoggerPrim a where
   toPoggerPrim :: a -> [PoggerVal] -> Pogger PoggerVal
 
+-- | base case.
+instance ToPoggerPrim ([PoggerVal] -> Pogger PoggerVal) where
+  toPoggerPrim n = n
+
+-- | Bool function
 instance Throwable a => ToPoggerPrim (Operator a Bool) where
   toPoggerPrim (BinOp _) args | length args /= 2 = throwError (NumArgs 2 [])
   toPoggerPrim (BinOp op) args = do
@@ -176,12 +179,6 @@ instance ToPoggerPrim (Operator a (ThrowsError PoggerNum)) where
 --       vals <- (toPoggerE . sequence) (unpack <$> args)
 --       return . Bool $ head vals `op` (vals !! 1)
 
--- numBoolBinop = mkBoolBinop unpack
-
--- strBoolBinop = mkBoolBinop unpack
-
--- boolBoolBinop = mkBoolBinop unpack
-
 -- factory function for mod and it's varaints.
 -- mkPoggerPartialIntBinop ::
 --   (Integer -> Integer -> Integer) ->
@@ -192,15 +189,6 @@ instance ToPoggerPrim (Operator a (ThrowsError PoggerNum)) where
 -- mkPoggerPartialIntBinop _ (Integer _) b =
 --   throwError . TypeMisMatch "number" $ Number b
 -- mkPoggerPartialIntBinop _ a _ = throwError . TypeMisMatch "integer" $ Number a
-
--- poggerMod = mkPoggerPartialIntBinop mod
--- {-# INLINE poggerMod #-}
-
--- poggerQuotient = mkPoggerPartialIntBinop quot
--- {-# INLINE poggerQuotient #-}
-
--- poggerRemainder = mkPoggerPartialIntBinop rem
--- {-# INLINE poggerRemainder #-}
 
 -- --------------------------------------------------------------------------
 -- list operations.

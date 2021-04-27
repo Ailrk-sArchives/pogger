@@ -1,13 +1,15 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -Wincomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-}
 
 -- Definition of all top level data types.
-
 module AST where
 
 import Control.Monad.Except
@@ -128,6 +130,33 @@ newtype Pogger a = Pogger {unPogger :: Pogger' a}
     )
 
 deriving instance Monad Pogger
+
+-- | unpack a value and make it throwable.
+class Throwable (a :: *) where
+  unpack :: PoggerVal -> ThrowsError a
+
+instance Throwable PoggerNum where
+  unpack (Number n) = return n
+  unpack (List [n]) = unpack n
+  unpack (String n) =
+    let parsed = reads n
+     in if null parsed
+          then throwError $ TypeMisMatch "number" $ String n
+          else return $ fst $ head parsed
+  unpack other = throwError $ TypeMisMatch "number" other
+  {-# INLINE unpack #-}
+
+instance Throwable String where
+  unpack (String s) = return s
+  unpack (Number n) = return . show $ n
+  unpack (Bool s) = return . show $ s
+  unpack other = throwError (TypeMisMatch "string" other)
+  {-# INLINE unpack #-}
+
+instance Throwable Bool where
+  unpack (Bool b) = return b
+  unpack other = throwError (TypeMisMatch "boolean" other)
+  {-# INLINE unpack #-}
 
 -- | lift helper
 liftThrows :: ThrowsError a -> IOThrowsError a
