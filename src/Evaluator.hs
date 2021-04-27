@@ -1,10 +1,16 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Evaluator where
 
@@ -20,10 +26,7 @@ import Num
 -- the core evaluator function
 eval :: PoggerVal -> Pogger PoggerVal
 eval val@(String _) = return val
-eval val@(Number (Integer _)) = return val
-eval val@(Number (Real _)) = return val
-eval val@(Number (Rational _ _)) = return val
-eval val@(Number (Complex _ _)) = return val
+eval val@(Number _) = return val
 eval val@(Bool _) = return val
 eval val@(Char _) = return val
 eval (List [Atom "quote", val]) = return val
@@ -36,11 +39,11 @@ eval (List [Atom "if", pred, seq, alt]) =
 eval (List [Atom "set!", Atom var, form]) = do
   value <- eval form
   env <- ask
-  toPogger' $ setVar env var value
+  toPogger_ $ setVar env var value
 eval (List [Atom "define", Atom var, form]) = do
   value <- eval form
   env <- ask
-  toPogger' $ defineVar env var value
+  toPogger_ $ defineVar env var value
 
 -- note, the order matter, otherwise keywords can be interpreted
 -- as functions.
@@ -51,11 +54,10 @@ eval other = throwError $ BadSpecialForm "Unrecognized form" other
 {-# INLINE eval #-}
 
 -- | apply a function to paramters.
-apply :: PoggerVal -> [PoggerVal] -> Pogger PoggerVal
-apply (FnPrimtive fn) args = toPogger $ unPrimitiveFn fn args
-apply (Fn PoggerFunc {..}) args
-  | length params /= length args && isNothing Nothing =
-    throwError $ NumArgs (toInteger . length $ params) args
+apply :: PoggerFunc -> [PoggerVal] -> Pogger PoggerVal
+apply (PoggerPrimitiveFn fn) args = toPoggerE $ fn args
+apply (PoggerFunc {..}) args
+  | length params /= length args = throwError $ NumArgs (toInteger . length $ params) args
   | otherwise = liftIO (bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
   where
     evalBody = undefined
@@ -63,30 +65,31 @@ apply (Fn PoggerFunc {..}) args
 
 -- --------------------------------------------------------------------------
 -- environment
+-- --------------------------------------------------------------------------
 
 primitives :: H.HashMap String ([PoggerVal] -> Pogger PoggerVal)
 primitives =
   H.fromList
-    [ ("+", numericBinop (+)),
-      ("-", numericBinop (-)),
-      ("*", numericBinop (*)),
-      ("/", numericBinop (/)),
-      ("mod", partialNumericBinop poggerMod),
-      ("quotient", partialNumericBinop poggerQuotient),
-      ("remainder", partialNumericBinop poggerRemainder),
-      ("=", numBoolBinop (==)),
-      ("<", numBoolBinop (<)),
-      (">", numBoolBinop (>)),
-      ("<=", numBoolBinop (<=)),
-      (">=", numBoolBinop (>=)),
-      ("/=", numBoolBinop (/=)),
-      ("and", boolBoolBinop (&&)),
-      ("or", boolBoolBinop (||)),
-      ("string=?", strBoolBinop (==)),
-      ("string<?", strBoolBinop (<)),
-      ("string>?", strBoolBinop (>)),
-      ("string<=?", strBoolBinop (<=)),
-      ("string>=?", strBoolBinop (>=)),
+    [ -- ("+", numericBinop (+)),
+      -- ("-", toPoggerPrim (BinOp (-))),
+      -- ("*", numericBinop (*)),
+      -- ("/", numericBinop (/)),
+      -- ("mod", partialNumericBinop poggerMod),
+      -- ("quotient", partialNumericBinop poggerQuotient),
+      -- ("remainder", partialNumericBinop poggerRemainder),
+      -- ("=", numBoolBinop (==)),
+      -- ("<", numBoolBinop (<)),
+      -- (">", numBoolBinop (>)),
+      -- ("<=", numBoolBinop (<=)),
+      -- (">=", numBoolBinop (>=)),
+      -- ("/=", numBoolBinop (/=)),
+      -- ("and", boolBoolBinop (&&)),
+      -- ("or", boolBoolBinop (||)),
+      -- ("string=?", strBoolBinop (==)),
+      -- ("string<?", strBoolBinop (<)),
+      -- ("string>?", strBoolBinop (>)),
+      -- ("string<=?", strBoolBinop (<=)),
+      -- ("string>=?", strBoolBinop (>=)),
       ("cons", cons),
       ("cdr", cdr),
       ("car", car),
@@ -94,96 +97,110 @@ primitives =
       ("print", print')
     ]
 
--- unpack a pogger value to a, if failed throws an error.
-type Unpacker a = PoggerVal -> ThrowsError a
+-- | unpack a value and make it throwable.
+class Throwable (a :: *) where
+  unpack :: PoggerVal -> ThrowsError a
 
-unpackNum :: Unpacker PoggerNum
-unpackNum (Number n) = return n
-unpackNum (List [n]) = unpackNum n
-unpackNum (String n) =
-  let parsed = reads n
-   in if null parsed
-        then throwError $ TypeMisMatch "number" $ String n
-        else return $ fst $ head parsed
-unpackNum other = throwError $ TypeMisMatch "number" other
-{-# INLINE unpackNum #-}
+instance Throwable PoggerNum where
+  unpack (Number n) = return n
+  unpack (List [n]) = unpack n
+  unpack (String n) =
+    let parsed = reads n
+     in if null parsed
+          then throwError $ TypeMisMatch "number" $ String n
+          else return $ fst $ head parsed
+  unpack other = throwError $ TypeMisMatch "number" other
+  {-# INLINE unpack #-}
 
-unpackString :: Unpacker String
-unpackString (String s) = return s
-unpackString (Number n) = return . show $ n
-unpackString (Bool s) = return . show $ s
-unpackString other = throwError $ TypeMisMatch "string" other
-{-# INLINE unpackString #-}
+instance Throwable String where
+  unpack (String s) = return s
+  unpack (Number n) = return . show $ n
+  unpack (Bool s) = return . show $ s
+  unpack other = throwError (TypeMisMatch "string" other)
+  {-# INLINE unpack #-}
 
-unpackBool :: Unpacker Bool
-unpackBool (Bool b) = return b
-unpackBool other = throwError $ TypeMisMatch "boolean" other
-{-# INLINE unpackBool #-}
+instance Throwable Bool where
+  unpack (Bool b) = return b
+  unpack other = throwError (TypeMisMatch "boolean" other)
+  {-# INLINE unpack #-}
+
+-- --------------------------------------------------------------------------
+-- pogger primitive
+-- --------------------------------------------------------------------------
+
+data Operator a ret where
+  BinOp :: forall a b. (a -> a -> b) -> Operator a b
+  UnOP :: forall a b. (a -> b) -> Operator a b
+
+-- | convert arbtrary haskell value into pogger primitive function.
+class ToPoggerPrim a where
+  toPoggerPrim :: a -> [PoggerVal] -> Pogger PoggerVal
+
+instance Throwable a => ToPoggerPrim (Operator a Bool) where
+  toPoggerPrim (BinOp _) args | length args /= 2 = throwError (NumArgs 2 [])
+  toPoggerPrim (BinOp op) args = do
+    vals <- (toPoggerE . sequence) (unpack <$> args)
+    return . Bool $ head vals `op` (vals !! 1)
+
+-- | operators on Pogger Num
+instance ToPoggerPrim (Operator PoggerNum PoggerNum) where
+  toPoggerPrim (BinOp _) args | length args /= 2 = throwError (NumArgs 2 [])
+  toPoggerPrim (BinOp op) args =
+    toPoggerE
+      (traverse unpack args >>= return . Number . foldl1 op)
+  toPoggerPrim (UnOP _) [] = throwError (NumArgs 1 [])
+  toPoggerPrim (UnOP op) [a] = toPoggerE (unpack a >>= \b -> (return . Number) (op b))
+
+instance ToPoggerPrim (Operator a (ThrowsError PoggerNum)) where
+  toPoggerPrim = undefined
 
 -- fold a binary operator over parameters
-numericBinop ::
-  (PoggerNum -> PoggerNum -> PoggerNum) ->
-  [PoggerVal] ->
-  Pogger PoggerVal
-numericBinop _ [] = throwError $ NumArgs 2 []
-numericBinop _ val@[_] = throwError $ NumArgs 2 val
-numericBinop op params = toPogger $ traverse unpackNum params >>= return . Number . foldl1 op
-{-# INLINE numericBinop #-}
 
--- numericBinop but the operator but can throws an error.
-partialNumericBinop ::
-  (PoggerNum -> PoggerNum -> ThrowsError PoggerNum) ->
-  [PoggerVal] ->
-  Pogger PoggerVal
-partialNumericBinop _ [] = throwError $ NumArgs 2 []
-partialNumericBinop _ val@[_] = throwError $ NumArgs 2 val
-partialNumericBinop op params = do
-  pvals <- toPogger $ traverse unpackNum params
-  Number <$> toPogger (foldl1 (liftJoin2 op) (pure <$> pvals))
-  where
-    liftJoin2 f ma mb = join (liftM2 f ma mb)
-{-# INLINE partialNumericBinop #-}
+-- partialNumericBinop _ [] = throwError $ NumArgs 2 []
+-- partialNumericBinop _ val@[_] = throwError $ NumArgs 2 val
+-- partialNumericBinop op params = do
+--   pvals <- toPoggerE (traverse unpack params)
+--   Number <$> toPoggerE (foldl1 (liftJoin2 op) (pure <$> pvals))
+--   where
+--     liftJoin2 f ma mb = join (liftM2 f ma mb)
+-- {-# INLINE partialNumericBinop #-}
 
--- boolean op factory.
--- The purpose of boolean binary operation is to
--- check if two paramters satisfy certain predicates.
-mkBoolBinop ::
-  Unpacker a ->
-  (a -> a -> Bool) ->
-  [PoggerVal] ->
-  Pogger PoggerVal
-mkBoolBinop unpacker op args =
-  if length args /= 2
-    then throwError $ NumArgs 2 args
-    else do
-      vals <- toPogger . sequence $ unpacker <$> args
-      return . Bool $ head vals `op` (vals !! 1)
+-- -- boolean op factory.
+-- -- The purpose of boolean binary operation is to
+-- -- check if two paramters satisfy certain predicates.
+-- mkBoolBinop :: Throwable PoggerVal a => (a -> a -> Bool) -> [PoggerVal] -> Pogger PoggerVal
+-- mkBoolBinop op args =
+--   if length args /= 2
+--     then throwError $ NumArgs 2 args
+--     else do
+--       vals <- (toPoggerE . sequence) (unpack <$> args)
+--       return . Bool $ head vals `op` (vals !! 1)
 
-numBoolBinop = mkBoolBinop unpackNum
+-- numBoolBinop = mkBoolBinop unpack
 
-strBoolBinop = mkBoolBinop unpackString
+-- strBoolBinop = mkBoolBinop unpack
 
-boolBoolBinop = mkBoolBinop unpackBool
+-- boolBoolBinop = mkBoolBinop unpack
 
 -- factory function for mod and it's varaints.
-mkPoggerPartialIntBinop ::
-  (Integer -> Integer -> Integer) ->
-  PoggerNum ->
-  PoggerNum ->
-  ThrowsError PoggerNum
-mkPoggerPartialIntBinop op (Integer a) (Integer b) = return $ Integer (a `op` b)
-mkPoggerPartialIntBinop _ (Integer _) b =
-  throwError . TypeMisMatch "number" $ Number b
-mkPoggerPartialIntBinop _ a _ = throwError . TypeMisMatch "integer" $ Number a
+-- mkPoggerPartialIntBinop ::
+--   (Integer -> Integer -> Integer) ->
+--   PoggerNum ->
+--   PoggerNum ->
+--   ThrowsError PoggerNum
+-- mkPoggerPartialIntBinop op (Integer a) (Integer b) = return $ Integer (a `op` b)
+-- mkPoggerPartialIntBinop _ (Integer _) b =
+--   throwError . TypeMisMatch "number" $ Number b
+-- mkPoggerPartialIntBinop _ a _ = throwError . TypeMisMatch "integer" $ Number a
 
-poggerMod = mkPoggerPartialIntBinop mod
-{-# INLINE poggerMod #-}
+-- poggerMod = mkPoggerPartialIntBinop mod
+-- {-# INLINE poggerMod #-}
 
-poggerQuotient = mkPoggerPartialIntBinop quot
-{-# INLINE poggerQuotient #-}
+-- poggerQuotient = mkPoggerPartialIntBinop quot
+-- {-# INLINE poggerQuotient #-}
 
-poggerRemainder = mkPoggerPartialIntBinop rem
-{-# INLINE poggerRemainder #-}
+-- poggerRemainder = mkPoggerPartialIntBinop rem
+-- {-# INLINE poggerRemainder #-}
 
 -- --------------------------------------------------------------------------
 -- list operations.
@@ -233,4 +250,4 @@ equal = undefined
 
 -- TODO cannot find the variable name right now.
 print' :: [PoggerVal] -> Pogger PoggerVal
-print' [Atom var] = ask >>= \env -> toPogger' $ getVar env var
+print' [Atom var] = ask >>= \env -> toPogger_ $ getVar env var

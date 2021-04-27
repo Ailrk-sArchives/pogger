@@ -1,5 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
+{-# OPTIONS_GHC -Wincomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Num where
 
@@ -9,6 +11,8 @@ import qualified Data.Complex as C
 -- --------------------------------------------------------------------------
 -- Pogger number
 -- This module implements some conversion between pogger numbers.
+-- ophan instance. Why not? Nobody will define another Num for PoggerNum
+-- Somewhere else.
 -- --------------------------------------------------------------------------
 
 -- | convert a PoggerNum to Complex
@@ -17,6 +21,12 @@ poggerNumToComplex (Integer n) = (realToFrac n) C.:+ 0.0
 poggerNumToComplex (Real r) = r C.:+ 0.0
 poggerNumToComplex (Rational a b) = (realToFrac a / realToFrac b) C.:+ 0.0
 poggerNumToComplex (Complex a b) = a C.:+ b
+
+poggerNumToDouble :: PoggerNum -> Double
+poggerNumToDouble (Integer n) = fromIntegral n
+poggerNumToDouble (Real r) = r
+poggerNumToDouble (Rational a b) = fromIntegral a / fromIntegral b
+poggerNumToDouble (Complex _ _) = error "Can't downgrade complex to real"
 
 -- | Convert complex to pogger complex.
 toPoggerComplex :: C.Complex Double -> PoggerNum
@@ -37,6 +47,8 @@ poggerBinop op m n@(Real _) = m `op` n
 {-# INLINE poggerBinop #-}
 
 -- | absolute value of pogger num
+-- >>> abs (Integer 2)
+-- Integer 2
 poggerUnary :: (forall a. Num a => a -> a) -> PoggerNum -> PoggerNum
 poggerUnary op = \case
   Integer m -> Integer (op m)
@@ -65,21 +77,39 @@ instance Num PoggerNum where
   signum = poggerUnary signum
   {-# INLINE signum #-}
 
--- instance Fractional PoggerNum where
---   {-# INLINE (/) #-}
+-- | division on pogger number
+poggerNumDivide :: PoggerNum -> PoggerNum -> PoggerNum
+poggerNumDivide (Real r) (Real r') = Real (r / r')
+poggerNumDivide c@(Complex _ _) c'@(Complex _ _) =
+  toPoggerComplex (poggerNumToComplex c / poggerNumToComplex c')
+poggerNumDivide (Integer m) (Integer n) = (Integer . floor) ((fromIntegral m) / (fromIntegral n))
+poggerNumDivide (Rational m n) (Rational m' n') = simplify (Rational (m * n') (n * m'))
 
---   {-# INLINE fromRational #-}
+-- >>> (abs . negate) (Rational 2 3 / Rational 5 3)
+-- Rational 2 5
+-- >>> Rational 2 3 / Rational 2 6
+-- Integer 2
+instance Fractional PoggerNum where
+  (/) = poggerNumDivide
+  {-# INLINE (/) #-}
+
+  fromRational = Real . fromRational
+  {-# INLINE fromRational #-}
 
 -- simply rational terms.
 simplify :: PoggerNum -> PoggerNum
 simplify (Rational a b) =
   let v = gcd a b
-   in Rational (a `div` v) (b `div` v)
+      r@(Rational m n) = Rational (a `div` v) (b `div` v)
+   in if n == 1
+         then Integer m
+         else Rational m n
+
 simplify _ = error "trying to simply non-rational"
 {-# INLINE simplify #-}
 
--- ord for pogger num
+-- ord for pogger number
 
--- instance Ord PoggerNum where
---   (<=) = poggerBinop (<=)
---   {-# INLINE (<=) #-}
+instance Ord PoggerNum where
+  m <= n = poggerNumToDouble m <= poggerNumToDouble n
+  {-# INLINE (<=) #-}
