@@ -6,6 +6,7 @@
 module Num where
 
 import AST
+import Control.Monad.Except
 import qualified Data.Complex as C
 
 -- --------------------------------------------------------------------------
@@ -96,20 +97,55 @@ instance Fractional PoggerNum where
   fromRational = Real . fromRational
   {-# INLINE fromRational #-}
 
--- simply rational terms.
+-- | simply rational terms.
 simplify :: PoggerNum -> PoggerNum
 simplify (Rational a b) =
   let v = gcd a b
       r@(Rational m n) = Rational (a `div` v) (b `div` v)
    in if n == 1
-         then Integer m
-         else Rational m n
-
+        then Integer m
+        else Rational m n
 simplify _ = error "trying to simply non-rational"
 {-# INLINE simplify #-}
 
--- ord for pogger number
-
+-- | ord for pogger number
 instance Ord PoggerNum where
   m <= n = poggerNumToDouble m <= poggerNumToDouble n
   {-# INLINE (<=) #-}
+
+instance Real PoggerNum where
+  toRational (Integer n) = fromIntegral n
+  toRational (Real r) = toRational r
+  toRational (Rational a b) = fromIntegral a / fromIntegral b
+  toRational (Complex a _) = toRational a
+  {-# INLINE toRational #-}
+
+instance Enum PoggerNum where
+  toEnum n = Integer (fromIntegral n)
+  {-# INLINE toEnum #-}
+
+  fromEnum (Integer n) = fromIntegral n
+  fromEnum _ = (-1)
+  {-# INLINE fromEnum #-}
+
+-- | pogger
+instance Integral PoggerNum where
+  toInteger (Integer n) = n
+  toInteger (Real r) = floor r
+  toInteger (Rational a b) = floor (fromIntegral a / fromIntegral b)
+  toInteger (Complex a _) = floor a
+  {-# INLINE toInteger #-}
+
+  quotRem (Integer a) (Integer b) = let (a', b') = (quotRem a b) in (Integer a', Integer b')
+  quotRem a b = error ("no division algorithm defined for" ++ show a ++ show b)
+
+-- | Safe wrappers
+safeQuotRem :: PoggerNum -> PoggerNum -> ThrowsError (PoggerNum, PoggerNum)
+safeQuotRem a@(Integer _) b@(Integer _) = return (quotRem a b)
+safeQuotRem a _ = throwError (TypeMisMatch "can't mod on non integer values" (Number a))
+
+safeMod :: PoggerNum -> PoggerNum -> ThrowsError PoggerNum
+safeMod a b = safeQuotRem a b >>= return . snd
+
+safeDiv :: PoggerNum -> PoggerNum -> ThrowsError PoggerNum
+safeDiv a b = safeQuotRem a b >>= return . fst

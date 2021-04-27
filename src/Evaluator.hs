@@ -51,17 +51,18 @@ eval (List [Atom "define", Atom var, form]) = do
 --   traverse eval args >>= apply func
 
 eval other = throwError $ BadSpecialForm "Unrecognized form" other
-{-# INLINE eval #-}
 
 -- | apply a function to paramters.
 apply :: PoggerFunc -> [PoggerVal] -> Pogger PoggerVal
 apply (PoggerPrimitiveFn fn) args = toPoggerE $ fn args
 apply (PoggerFunc {..}) args
-  | length params /= length args = throwError $ NumArgs (toInteger . length $ params) args
-  | otherwise = liftIO (bindVars closure $ zip params args) >>= bindVarArgs varargs >>= evalBody
+  | length params /= length args = throwError (NumArgs (toInteger . length $ params) args)
+  | otherwise = liftIO substitute >>= bindVarArgs varargs >>= evalBody
   where
+    substitute = bindVars closure (zip params args)
     evalBody = undefined
     bindVarArgs arg env = maybe (return env) _ arg
+{-# INLINE apply #-}
 
 -- --------------------------------------------------------------------------
 -- environment
@@ -104,6 +105,13 @@ primitives =
             [(String, Operator Bool Bool)]
         ),
       to
+        ( [ ("mod", BinOp (safeMod)),
+            ("quotient", BinOp (safeDiv)),
+            ("rem", BinOp (safeMod))
+          ] ::
+            [(String, Operator PoggerNum (ThrowsError PoggerNum))]
+        ),
+      to
         [ ("cons", cons),
           ("cdr", cdr),
           ("car", car),
@@ -113,14 +121,6 @@ primitives =
     ]
   where
     to xs = [(a, toPoggerPrim b) | (a, b) <- xs]
-
--- [
---   -- ("mod", partialNumericBinop poggerMod),
---   -- ("quotient", partialNumericBinop poggerQuotient),
---   -- ("remainder", partialNumericBinop poggerRemainder),
---   -- ("and", boolBoolBinop (&&)),
---   -- ("or", boolBoolBinop (||)),
--- ]
 
 -- --------------------------------------------------------------------------
 -- pogger primitive
@@ -137,6 +137,7 @@ class ToPoggerPrim a where
 -- | base case.
 instance ToPoggerPrim ([PoggerVal] -> Pogger PoggerVal) where
   toPoggerPrim n = n
+  {-# INLINE toPoggerPrim #-}
 
 -- | Bool function
 instance Throwable a => ToPoggerPrim (Operator a Bool) where
@@ -144,6 +145,7 @@ instance Throwable a => ToPoggerPrim (Operator a Bool) where
   toPoggerPrim (BinOp op) args = do
     vals <- (toPoggerE . sequence) (unpack <$> args)
     return . Bool $ head vals `op` (vals !! 1)
+  {-# INLINE toPoggerPrim #-}
 
 -- | operators on Pogger Num
 instance ToPoggerPrim (Operator PoggerNum PoggerNum) where
@@ -153,45 +155,20 @@ instance ToPoggerPrim (Operator PoggerNum PoggerNum) where
       (traverse unpack args >>= return . Number . foldl1 op)
   toPoggerPrim (UnOP _) [] = throwError (NumArgs 1 [])
   toPoggerPrim (UnOP op) [a] = toPoggerE (unpack a >>= \b -> (return . Number) (op b))
+  {-# INLINE toPoggerPrim #-}
 
-instance ToPoggerPrim (Operator a (ThrowsError PoggerNum)) where
-  toPoggerPrim = undefined
-
--- fold a binary operator over parameters
-
--- partialNumericBinop _ [] = throwError $ NumArgs 2 []
--- partialNumericBinop _ val@[_] = throwError $ NumArgs 2 val
--- partialNumericBinop op params = do
---   pvals <- toPoggerE (traverse unpack params)
---   Number <$> toPoggerE (foldl1 (liftJoin2 op) (pure <$> pvals))
---   where
---     liftJoin2 f ma mb = join (liftM2 f ma mb)
--- {-# INLINE partialNumericBinop #-}
-
--- -- boolean op factory.
--- -- The purpose of boolean binary operation is to
--- -- check if two paramters satisfy certain predicates.
--- mkBoolBinop :: Throwable PoggerVal a => (a -> a -> Bool) -> [PoggerVal] -> Pogger PoggerVal
--- mkBoolBinop op args =
---   if length args /= 2
---     then throwError $ NumArgs 2 args
---     else do
---       vals <- (toPoggerE . sequence) (unpack <$> args)
---       return . Bool $ head vals `op` (vals !! 1)
-
--- factory function for mod and it's varaints.
--- mkPoggerPartialIntBinop ::
---   (Integer -> Integer -> Integer) ->
---   PoggerNum ->
---   PoggerNum ->
---   ThrowsError PoggerNum
--- mkPoggerPartialIntBinop op (Integer a) (Integer b) = return $ Integer (a `op` b)
--- mkPoggerPartialIntBinop _ (Integer _) b =
---   throwError . TypeMisMatch "number" $ Number b
--- mkPoggerPartialIntBinop _ a _ = throwError . TypeMisMatch "integer" $ Number a
+instance ToPoggerPrim (Operator PoggerNum (ThrowsError PoggerNum)) where
+  toPoggerPrim (BinOp _) args | length args /= 2 = throwError (NumArgs 2 [])
+  toPoggerPrim (BinOp op) args = do
+    vals <- toPoggerE (traverse unpack args)
+    Number <$> toPoggerE (foldl1 (liftJoin2 op) (return <$> vals))
+    where
+      liftJoin2 f ma mb = join (liftM2 f ma mb)
+  {-# INLINE toPoggerPrim #-}
 
 -- --------------------------------------------------------------------------
 -- list operations.
+-- --------------------------------------------------------------------------
 
 cons :: [PoggerVal] -> Pogger PoggerVal
 cons [a, List []] = return $ List [a]
@@ -239,3 +216,4 @@ equal = undefined
 -- TODO cannot find the variable name right now.
 print' :: [PoggerVal] -> Pogger PoggerVal
 print' [Atom var] = ask >>= \env -> toPogger_ $ getVar env var
+{-# INLINE print' #-}
