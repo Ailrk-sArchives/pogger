@@ -20,6 +20,7 @@ library
   other-modules: Paths_pogger
   exposed-modules:
       Parser.Sexp
+    , Pretty
     , Evaluator
     , Exception
     , Env
