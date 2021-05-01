@@ -6,6 +6,7 @@ module Exception where
 
 import AST
 import Control.Monad.Except
+import Pretty
 
 showPoggerError :: PoggerError -> String
 showPoggerError (NumArgs expected found) =

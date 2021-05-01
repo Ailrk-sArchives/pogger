@@ -35,16 +35,19 @@ toPoggerComplex c = Complex (C.realPart c) (C.imagPart c)
 
 -- | Generic binary operator that handles coersion rules.
 poggerBinop :: (forall a. Num a => a -> a -> a) -> PoggerNum -> PoggerNum -> PoggerNum
-poggerBinop op (Integer m) (Integer n) = Integer (m `op` n)
-poggerBinop op (Rational m n) (Rational m' n') = Rational (m `op` m') (n `op` n')
-poggerBinop op (Real r) (Real r') = Real (r `op` r')
-poggerBinop op (Complex m n) (Complex m' n') = Complex (m `op` m') (n `op` n')
-poggerBinop op (Rational a b) (Integer n) = simplify $ Rational (a `op` (n * b)) b
-poggerBinop op i@(Integer _) r@(Rational _ _) = r `op` i
-poggerBinop op m@(Complex _ _) n = toPoggerComplex (poggerNumToComplex m `op` poggerNumToComplex n)
-poggerBinop op m n@(Complex _ _) = m `op` n
-poggerBinop op m@(Real _) n = (Real . C.realPart) (poggerNumToComplex m `op` poggerNumToComplex n)
-poggerBinop op m n@(Real _) = m `op` n
+poggerBinop op = mkop
+  where
+   mkop (Integer m) (Integer n) = Integer (m `op` n)
+   mkop (Rational m n) (Rational m' n') = Rational (m `op` m') (n `op` n')
+   mkop (Real r) (Real r') = Real (r `op` r')
+   mkop (Complex m n) (Complex m' n') = Complex (m `op` m') (n `op` n')
+   mkop (Rational a b) (Integer n) = simplify $ Rational (a `op` (n * b)) b
+   mkop i@(Integer _) r@(Rational _ _) = r `op` i
+   mkop m@(Complex _ _) n = toPoggerComplex (poggerNumToComplex m `op` poggerNumToComplex n)
+   mkop m n@(Complex _ _) = m `op` n
+   mkop m@(Real _) n = (Real . C.realPart) (poggerNumToComplex m `op` poggerNumToComplex n)
+   mkop m n@(Real _) = m `op` n
+
 {-# INLINE poggerBinop #-}
 
 -- | absolute value of pogger num
@@ -136,7 +139,9 @@ instance Integral PoggerNum where
   toInteger (Complex a _) = floor a
   {-# INLINE toInteger #-}
 
-  quotRem (Integer a) (Integer b) = let (a', b') = (quotRem a b) in (Integer a', Integer b')
+  quotRem (Integer a) (Integer b) =
+    let (a', b') = (quotRem a b)
+     in (Integer a', Integer b')
   quotRem a b = error ("no division algorithm defined for" ++ show a ++ show b)
 
 -- | Safe wrappers

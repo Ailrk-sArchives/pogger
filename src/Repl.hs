@@ -1,32 +1,31 @@
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Repl where
 
-
-import           AST
-import           Control.Monad.Except
-import           Control.Monad.Reader
-import           Env
-import           Evaluator
-import           Exception
-import           Parser.Sexp
-import           Prettyprinter
-import           Text.Parsec
+import AST
+import Control.Monad.Except
+import Control.Monad.Reader
+import Env
+import Evaluator
+import Exception
+import Parser.Sexp
+import Prettyprinter
+import Text.Parsec
 
 -- Parser string to pogger values.
 readExpr :: (MonadError PoggerError m) => String -> m PoggerVal
-readExpr input = case parse poggerExpr "poggerScheme" input of
-  Left  err -> throwError $ ParserError err
+readExpr input = case parse poggerExpr "<poggerScheme>" input of
+  Left err -> throwError $ ParserError err
   Right val -> return val
 
 til :: Monad m => (a -> Bool) -> m a -> (a -> m ()) -> m ()
 til pred prompt action = do
   val <- prompt
   if pred val
-     then return ()
-     else action val >> til pred prompt action
+    then return ()
+    else action val >> til pred prompt action
 
 -- repl entrance.
 repl :: IO ()
